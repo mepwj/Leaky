@@ -1,0 +1,34 @@
+# OSX
+.DS_Store
+
+# Android/IntelliJ
+build/
+.idea
+.gradle
+local.properties
+*.iml
+*.hprof
+.cxx/
+*.keystore
+!debug.keystore
+.kotlin/
+
+# Node
+node_modules/
+npm-debug.log
+
+# Metro
+.metro-health-check*
+
+# Bundle artifact
+*.jsbundle
+
+# Testing
+/coverage
+
+# Env
+.env
+.env.*
+
+# OMC
+.omc/
