@@ -1,4 +1,4 @@
-package com.budgettracker
+package com.leaky
 
 import android.app.Application
 import com.facebook.react.PackageList

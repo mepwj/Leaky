@@ -8,7 +8,7 @@ function App() {
       <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.container}>
         <View style={styles.content}>
-          <Text style={styles.title}>BudgetTracker</Text>
+          <Text style={styles.title}>Leaky</Text>
         </View>
       </SafeAreaView>
     </SafeAreaProvider>
