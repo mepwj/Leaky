@@ -21,8 +21,8 @@ function App(): React.JSX.Element {
     });
   }, []);
 
-  // Theme selection: respect system preference
-  // Currently using lightTheme; extend with darkTheme when ready
+  // 테마 선택: 시스템 설정 존중
+  // 현재는 lightTheme 사용; 준비되면 darkTheme으로 확장
   const theme = lightTheme;
   const isDark = colorScheme === 'dark';
 

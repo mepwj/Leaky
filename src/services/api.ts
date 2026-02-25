@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// adb reverse tcp:3000 tcp:3000 으로 물리기기/에뮬레이터 모두 localhost 사용
+// adb reverse tcp:3000 tcp:3000 으로 물리 기기/에뮬레이터 모두 localhost 사용
 const BASE_URL = 'http://localhost:3000';
 
 const JWT_KEY = 'jwt_token';
@@ -16,6 +16,12 @@ export const tokenStorage = {
     await AsyncStorage.removeItem(JWT_KEY);
   },
 };
+
+let onUnauthorized: (() => void) | null = null;
+
+export function setOnUnauthorized(callback: () => void): void {
+  onUnauthorized = callback;
+}
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const token = await tokenStorage.get();
@@ -43,7 +49,34 @@ async function post<T>(path: string, body: unknown, auth = false): Promise<T> {
   const data: any = await response.json();
 
   if (!response.ok) {
+    if (response.status === 401) {
+      await tokenStorage.remove();
+      onUnauthorized?.();
+    }
     throw new Error(data.message || `HTTP error ${response.status}`);
+  }
+
+  return data as T;
+}
+
+async function patch<T>(path: string, body: unknown): Promise<T> {
+  const headers = await getAuthHeaders();
+
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data: any = await response.json();
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      await tokenStorage.remove();
+      onUnauthorized?.();
+    }
+    throw new Error(data.error || `HTTP error ${response.status}`);
   }
 
   return data as T;
@@ -61,7 +94,33 @@ async function get<T>(path: string): Promise<T> {
   const data: any = await response.json();
 
   if (!response.ok) {
+    if (response.status === 401) {
+      await tokenStorage.remove();
+      onUnauthorized?.();
+    }
     throw new Error(data.message || `HTTP error ${response.status}`);
+  }
+
+  return data as T;
+}
+
+async function del<T>(path: string): Promise<T> {
+  const headers = await getAuthHeaders();
+
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: 'DELETE',
+    headers,
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data: any = await response.json();
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      await tokenStorage.remove();
+      onUnauthorized?.();
+    }
+    throw new Error(data.error || `HTTP error ${response.status}`);
   }
 
   return data as T;
@@ -75,6 +134,20 @@ export interface AuthResponse {
     nickname?: string;
     provider: string;
     emailVerified: boolean;
+    onboardingCompleted: boolean;
+  };
+}
+
+export interface MeResponse {
+  user: {
+    id: number;
+    email: string;
+    nickname?: string;
+    provider: string;
+    emailVerified: boolean;
+    onboardingCompleted: boolean;
+    createdAt: string;
+    updatedAt: string;
   };
 }
 
@@ -82,6 +155,152 @@ export interface User {
   id: number;
   email: string;
   name?: string;
+}
+
+export interface Category {
+  id: number;
+  userId: number | null;
+  type: string;
+  name: string;
+  icon: string | null;
+  sortOrder: number;
+  isDefault: boolean;
+}
+
+export interface CategoriesResponse {
+  categories: Category[];
+}
+
+export interface TransactionCategory {
+  id: number;
+  userId: number | null;
+  type: string;
+  name: string;
+  icon: string | null;
+  sortOrder: number;
+  isDefault: boolean;
+}
+
+export interface Transaction {
+  id: number;
+  userId: number;
+  type: 'income' | 'expense';
+  amount: string; // Prisma에서 Decimal 타입은 문자열로 반환됨
+  categoryId: number | null;
+  category: TransactionCategory | null;
+  accountId: number | null;
+  cardId: number | null;
+  paymentMethod: string;
+  memo: string | null;
+  date: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TransactionsResponse {
+  transactions: Transaction[];
+}
+
+export interface TransactionSummary {
+  [date: string]: { income: number; expense: number };
+}
+
+export interface TransactionSummaryResponse {
+  summary: TransactionSummary;
+}
+
+export interface CreateTransactionData {
+  type: 'income' | 'expense';
+  amount: number;
+  categoryId?: number;
+  paymentMethod: 'cash' | 'account' | 'card';
+  paymentSourceId?: number | null;
+  memo?: string;
+  date: string; // YYYY-MM-DD 형식
+}
+
+export interface CreateTransactionResponse {
+  transaction: Transaction;
+}
+
+export interface DeleteTransactionResponse {
+  message: string;
+}
+
+// ─── 자산 타입 ──────────────────────────────────────────────────
+
+export interface Account {
+  id: number;
+  userId: number;
+  bankName: string;
+  alias: string | null;
+  balance: string; // Prisma에서 Decimal 타입은 문자열로 반환됨
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Card {
+  id: number;
+  userId: number;
+  cardCompany: string;
+  alias: string | null;
+  paymentDay: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AccountsResponse {
+  accounts: Account[];
+}
+
+export interface CardsResponse {
+  cards: Card[];
+}
+
+export interface CreateAccountData {
+  bankName: string;
+  alias?: string;
+  balance?: number;
+}
+
+export interface UpdateAccountData {
+  bankName?: string;
+  alias?: string | null;
+  balance?: number;
+}
+
+export interface CreateCardData {
+  cardCompany: string;
+  alias?: string;
+  paymentDay?: number;
+}
+
+export interface UpdateCardData {
+  cardCompany?: string;
+  alias?: string | null;
+  paymentDay?: number | null;
+}
+
+export interface AccountResponse {
+  account: Account;
+}
+
+export interface CardResponse {
+  card: Card;
+}
+
+export interface DeleteAssetResponse {
+  message: string;
+}
+
+export interface AssetSummary {
+  totalBalance: number;
+  accountCount: number;
+  cardCount: number;
+}
+
+export interface AssetSummaryResponse {
+  summary: AssetSummary;
 }
 
 export const api = {
@@ -97,7 +316,73 @@ export const api = {
     return post<AuthResponse>('/auth/login', {email, password});
   },
 
-  getMe: async (): Promise<User> => {
-    return get<User>('/auth/me');
+  getMe: async (): Promise<MeResponse> => {
+    return get<MeResponse>('/auth/me');
+  },
+
+  updateProfile: async (nickname: string): Promise<MeResponse> => {
+    return patch<MeResponse>('/auth/profile', {nickname});
+  },
+
+  // 카테고리 API
+  getCategories: async (type?: string): Promise<CategoriesResponse> => {
+    const query = type ? `?type=${type}` : '';
+    return get<CategoriesResponse>(`/categories${query}`);
+  },
+
+  // 거래 API
+  getTransactionSummary: async (month: string): Promise<TransactionSummaryResponse> => {
+    return get<TransactionSummaryResponse>(`/transactions/summary?month=${month}`);
+  },
+
+  getTransactions: async (month: string): Promise<TransactionsResponse> => {
+    return get<TransactionsResponse>(`/transactions?month=${month}`);
+  },
+
+  createTransaction: async (data: CreateTransactionData): Promise<CreateTransactionResponse> => {
+    return post<CreateTransactionResponse>('/transactions', data, true);
+  },
+
+  deleteTransaction: async (id: number): Promise<DeleteTransactionResponse> => {
+    return del<DeleteTransactionResponse>(`/transactions/${id}`);
+  },
+
+  // 자산 API - 계좌
+  getAccounts: async (): Promise<AccountsResponse> => {
+    return get<AccountsResponse>('/assets/accounts');
+  },
+
+  createAccount: async (data: CreateAccountData): Promise<AccountResponse> => {
+    return post<AccountResponse>('/assets/accounts', data, true);
+  },
+
+  updateAccount: async (id: number, data: UpdateAccountData): Promise<AccountResponse> => {
+    return patch<AccountResponse>(`/assets/accounts/${id}`, data);
+  },
+
+  deleteAccount: async (id: number): Promise<DeleteAssetResponse> => {
+    return del<DeleteAssetResponse>(`/assets/accounts/${id}`);
+  },
+
+  // 자산 API - 카드
+  getCards: async (): Promise<CardsResponse> => {
+    return get<CardsResponse>('/assets/cards');
+  },
+
+  createCard: async (data: CreateCardData): Promise<CardResponse> => {
+    return post<CardResponse>('/assets/cards', data, true);
+  },
+
+  updateCard: async (id: number, data: UpdateCardData): Promise<CardResponse> => {
+    return patch<CardResponse>(`/assets/cards/${id}`, data);
+  },
+
+  deleteCard: async (id: number): Promise<DeleteAssetResponse> => {
+    return del<DeleteAssetResponse>(`/assets/cards/${id}`);
+  },
+
+  // 자산 API - 요약
+  getAssetSummary: async (): Promise<AssetSummaryResponse> => {
+    return get<AssetSummaryResponse>('/assets/summary');
   },
 };

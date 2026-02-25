@@ -41,7 +41,7 @@ function LoginScreen({navigation}: Props): React.JSX.Element {
     try {
       setLoading(true);
       const result = await api.login(email.trim(), password);
-      await signIn(result.token);
+      await signIn(result.token, result.user.onboardingCompleted, result.user.nickname);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '로그인에 실패했습니다.';
       Alert.alert('로그인 실패', message);
@@ -63,7 +63,7 @@ function LoginScreen({navigation}: Props): React.JSX.Element {
       }
 
       const result = await api.googleLogin(idToken);
-      await signIn(result.token);
+      await signIn(result.token, result.user.onboardingCompleted, result.user.nickname);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Google 로그인에 실패했습니다.';
       Alert.alert('Google 로그인 실패', message);

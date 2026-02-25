@@ -1,28 +1,34 @@
 import express from 'express';
 import cors from 'cors';
 import authRouter from './routes/auth';
+import transactionRouter from './routes/transaction';
+import categoryRouter from './routes/category';
+import assetRouter from './routes/asset';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
-// Middleware
+// 미들웨어
 app.use(cors());
 app.use(express.json());
 
-// Health check
+// 헬스 체크
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Routes
+// 라우트
 app.use('/auth', authRouter);
+app.use('/transactions', transactionRouter);
+app.use('/categories', categoryRouter);
+app.use('/assets', assetRouter);
 
-// 404 handler
+// 404 핸들러
 app.use((_req, res) => {
   res.status(404).json({ error: 'Not found.' });
 });
 
-// Global error handler
+// 전역 에러 핸들러
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled error:', err);
   res.status(500).json({ error: 'Internal server error.' });

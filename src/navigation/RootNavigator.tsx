@@ -4,10 +4,11 @@ import {useTheme} from 'react-native-paper';
 import {useAuth} from '../context/AuthContext';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
+import OnboardingScreen from '../screens/auth/OnboardingScreen';
 
 function RootNavigator(): React.JSX.Element {
   const theme = useTheme();
-  const {isAuthenticated} = useAuth();
+  const {isAuthenticated, needsOnboarding} = useAuth();
 
   if (isAuthenticated === null) {
     return (
@@ -23,7 +24,15 @@ function RootNavigator(): React.JSX.Element {
     );
   }
 
-  return isAuthenticated ? <MainNavigator /> : <AuthNavigator />;
+  if (!isAuthenticated) {
+    return <AuthNavigator />;
+  }
+
+  if (needsOnboarding) {
+    return <OnboardingScreen />;
+  }
+
+  return <MainNavigator />;
 }
 
 export default RootNavigator;

@@ -13,7 +13,7 @@ const googleClient = new OAuth2Client(GOOGLE_WEB_CLIENT_ID);
 const SALT_ROUNDS = 12;
 
 // POST /auth/google
-// Receives Google ID token, verifies it, creates/finds user, returns JWT
+// Google ID 토큰을 받아 검증 후 사용자를 생성하거나 찾아 JWT를 반환
 router.post('/google', async (req: Request, res: Response): Promise<void> => {
   try {
     const { idToken } = req.body;
@@ -23,7 +23,7 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Verify the Google ID token
+    // Google ID 토큰 검증
     const ticket = await googleClient.verifyIdToken({
       idToken,
       audience: GOOGLE_WEB_CLIENT_ID,
@@ -37,7 +37,7 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
 
     const { email, name } = payload;
 
-    // Find or create user
+    // 사용자 찾기 또는 생성
     let user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
@@ -61,6 +61,7 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
         nickname: user.nickname,
         provider: user.provider,
         emailVerified: user.emailVerified,
+        onboardingCompleted: user.onboardingCompleted,
       },
     });
   } catch (error) {
@@ -70,7 +71,7 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
 });
 
 // POST /auth/signup
-// Email + password signup. Creates user with verification token.
+// 이메일 + 비밀번호 회원가입. 인증 토큰과 함께 사용자를 생성.
 router.post('/signup', async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
@@ -80,33 +81,33 @@ router.post('/signup', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Validate email format
+    // 이메일 형식 검증
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       res.status(400).json({ error: 'Invalid email format.' });
       return;
     }
 
-    // Validate password length
+    // 비밀번호 길이 검증
     if (password.length < 6) {
       res.status(400).json({ error: 'Password must be at least 6 characters.' });
       return;
     }
 
-    // Check if user already exists
+    // 이미 존재하는 사용자인지 확인
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       res.status(409).json({ error: 'Email is already registered.' });
       return;
     }
 
-    // Hash password
+    // 비밀번호 해시
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-    // Generate verification token
+    // 인증 토큰 생성
     const verificationToken = uuidv4();
 
-    // Create user
+    // 사용자 생성
     const user = await prisma.user.create({
       data: {
         email,
@@ -119,7 +120,7 @@ router.post('/signup', async (req: Request, res: Response): Promise<void> => {
 
     const token = generateToken({ userId: user.id, email: user.email });
 
-    // TODO: In production, send verification email instead of returning the token
+    // TODO: 프로덕션에서는 토큰 반환 대신 인증 이메일 발송
     res.status(201).json({
       token,
       verificationToken,
@@ -129,6 +130,7 @@ router.post('/signup', async (req: Request, res: Response): Promise<void> => {
         nickname: user.nickname,
         provider: user.provider,
         emailVerified: user.emailVerified,
+        onboardingCompleted: user.onboardingCompleted,
       },
     });
   } catch (error) {
@@ -138,7 +140,7 @@ router.post('/signup', async (req: Request, res: Response): Promise<void> => {
 });
 
 // POST /auth/login
-// Email + password login. Checks emailVerified status.
+// 이메일 + 비밀번호 로그인. 이메일 인증 여부를 확인.
 router.post('/login', async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
@@ -148,20 +150,20 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Find user
+    // 사용자 조회
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       res.status(401).json({ error: 'Invalid email or password.' });
       return;
     }
 
-    // Check provider - Google users should use Google login
+    // 로그인 제공자 확인 - Google 사용자는 Google 로그인을 사용해야 함
     if (user.provider === 'google') {
       res.status(400).json({ error: 'This account uses Google login. Please sign in with Google.' });
       return;
     }
 
-    // Verify password
+    // 비밀번호 검증
     if (!user.password) {
       res.status(401).json({ error: 'Invalid email or password.' });
       return;
@@ -173,7 +175,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Check email verification
+    // 이메일 인증 여부 확인
     if (!user.emailVerified) {
       res.status(403).json({ error: 'Email not verified. Please verify your email first.' });
       return;
@@ -189,6 +191,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
         nickname: user.nickname,
         provider: user.provider,
         emailVerified: user.emailVerified,
+        onboardingCompleted: user.onboardingCompleted,
       },
     });
   } catch (error) {
@@ -198,7 +201,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
 });
 
 // POST /auth/verify-email
-// Verifies email using the verification token.
+// 인증 토큰을 사용하여 이메일을 인증.
 router.post('/verify-email', async (req: Request, res: Response): Promise<void> => {
   try {
     const { verificationToken } = req.body;
@@ -208,7 +211,7 @@ router.post('/verify-email', async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Find user with this token
+    // 해당 토큰을 가진 사용자 조회
     const user = await prisma.user.findFirst({
       where: { verificationToken },
     });
@@ -223,7 +226,7 @@ router.post('/verify-email', async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Mark email as verified and clear the token
+    // 이메일 인증 완료 처리 및 토큰 삭제
     await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -240,7 +243,7 @@ router.post('/verify-email', async (req: Request, res: Response): Promise<void> 
 });
 
 // GET /auth/me
-// Protected route. Returns current user info.
+// 인증이 필요한 라우트. 현재 사용자 정보를 반환.
 router.get('/me', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId } = req.user as JwtPayload;
@@ -253,6 +256,7 @@ router.get('/me', authMiddleware, async (req: Request, res: Response): Promise<v
         nickname: true,
         provider: true,
         emailVerified: true,
+        onboardingCompleted: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -267,6 +271,50 @@ router.get('/me', authMiddleware, async (req: Request, res: Response): Promise<v
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to get user info.' });
+  }
+});
+
+// PATCH /auth/profile
+// 인증이 필요한 라우트. 사용자 닉네임을 업데이트하고 온보딩 완료를 표시.
+router.patch('/profile', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.user as JwtPayload;
+    const { nickname } = req.body;
+
+    if (!nickname || typeof nickname !== 'string' || !nickname.trim()) {
+      res.status(400).json({ error: 'Nickname is required.' });
+      return;
+    }
+
+    const trimmedNickname = nickname.trim();
+
+    if (trimmedNickname.length > 20) {
+      res.status(400).json({ error: 'Nickname must be 20 characters or less.' });
+      return;
+    }
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        nickname: trimmedNickname,
+        onboardingCompleted: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        nickname: true,
+        provider: true,
+        emailVerified: true,
+        onboardingCompleted: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    res.json({ user });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Failed to update profile.' });
   }
 });
 
