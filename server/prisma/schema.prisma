@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                Int       @id @default(autoincrement())
+  email             String    @unique
+  password          String?
+  nickname          String?
+  provider          String    @default("email")
+  emailVerified     Boolean   @default(false)
+  verificationToken String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  accounts          Account[]
+  cards             Card[]
+  transactions      Transaction[]
+  categories        Category[]
+  budgets           Budget[]
+}
+
+model Account {
+  id           Int           @id @default(autoincrement())
+  userId       Int
+  user         User          @relation(fields: [userId], references: [id])
+  bankName     String
+  alias        String?
+  balance      Decimal       @default(0) @db.Decimal(15, 2)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[]
+}
+
+model Card {
+  id           Int           @id @default(autoincrement())
+  userId       Int
+  user         User          @relation(fields: [userId], references: [id])
+  cardCompany  String
+  alias        String?
+  paymentDay   Int?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[]
+}
+
+model Category {
+  id           Int           @id @default(autoincrement())
+  userId       Int?
+  user         User?         @relation(fields: [userId], references: [id])
+  type         String
+  name         String
+  icon         String?
+  sortOrder    Int           @default(0)
+  isDefault    Boolean       @default(false)
+  transactions Transaction[]
+  budgets      Budget[]
+}
+
+model Transaction {
+  id            Int       @id @default(autoincrement())
+  userId        Int
+  user          User      @relation(fields: [userId], references: [id])
+  type          String
+  amount        Decimal   @db.Decimal(15, 2)
+  categoryId    Int?
+  category      Category? @relation(fields: [categoryId], references: [id])
+  accountId     Int?
+  account       Account?  @relation(fields: [accountId], references: [id])
+  cardId        Int?
+  card          Card?     @relation(fields: [cardId], references: [id])
+  paymentMethod String    @default("cash")
+  memo          String?
+  date          DateTime
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Budget {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  user       User      @relation(fields: [userId], references: [id])
+  categoryId Int?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  amount     Decimal   @db.Decimal(15, 2)
+  month      String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}

@@ -7,7 +7,7 @@
 | 앱 이름 | Leaky (줄줄 새는 소비를 막아주는 가계부) |
 | 플랫폼 | Android (React Native 0.84.0) |
 | UI 프레임워크 | React Native Paper (Material Design 3) |
-| 백엔드 DB | 자체 미니 PC 서버 (상세 TBD) |
+| 백엔드 DB | 자체 미니 PC 서버 (PostgreSQL 17 + Docker) |
 | 데이터 입력 방식 | 수동 입력 (금융 API 연동 없음) |
 | 참고 앱 | 위플 가계부, 뱅크샐러드, 토스, 편한가계부 |
 
@@ -27,8 +27,9 @@
 | 차트 | react-native-chart-kit 또는 victory-native |
 | 캘린더 | react-native-calendars |
 | 인증 | Google OAuth 2.0, 이메일/비밀번호 |
-| 백엔드 | TBD (미니 PC 서버) |
-| DB | TBD |
+| 백엔드 | Node.js API 서버 (미니 PC, Docker) |
+| DB | PostgreSQL 17 (Docker, 미니 PC) |
+| ORM | Prisma (마이그레이션 + 타입 자동 생성) |
 
 ---
 
@@ -333,6 +334,36 @@
 - amount
 - month (YYYY-MM)
 ```
+
+---
+
+## 11. 서버 인프라
+
+### 서버 정보
+
+| 항목 | 내용 |
+|------|------|
+| 호스트 | mepwj.iptime.org |
+| OS | Ubuntu 24.04.3 LTS |
+| Docker | 28.3.3 + Compose 2.39.1 |
+| Node.js | 22.18.0 |
+| DB | PostgreSQL 17.8 (Docker, leaky-db 컨테이너) |
+| DB 이름 | leaky |
+| DB 포트 | 5432 (외부 포트포워딩 완료) |
+
+### DB 관리: Prisma
+
+- `prisma/schema.prisma`에 데이터 모델 정의
+- `npx prisma migrate dev` → 테이블 자동 생성/변경
+- 마이그레이션 히스토리가 git으로 관리됨
+- TypeScript 타입 자동 생성 (프론트와 타입 공유 가능)
+
+### API 서버 (구성 예정)
+
+- Node.js + Express 또는 Fastify
+- Prisma ORM으로 DB 접근
+- Docker 컨테이너로 배포 (leaky-api)
+- 포트: 3000
 
 ---
 
