@@ -6,6 +6,7 @@ import {
   NativeStackNavigationProp,
 } from '@react-navigation/native-stack';
 import {useTheme} from 'react-native-paper';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import HomeScreen from '../screens/main/HomeScreen';
 import StatsScreen from '../screens/main/StatsScreen';
@@ -49,6 +50,7 @@ function AddButton({onPress}: {onPress: () => void}): React.JSX.Element {
 
 function MainTabs(): React.JSX.Element {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tab.Navigator
@@ -60,8 +62,8 @@ function MainTabs(): React.JSX.Element {
           backgroundColor: theme.colors.surface,
           borderTopColor: theme.colors.outline,
           borderTopWidth: 0.5,
-          height: 60,
-          paddingBottom: 8,
+          height: 60 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
           paddingTop: 4,
         },
         tabBarIcon: ({color, size}) => {
