@@ -1,6 +1,7 @@
 name: Deploy to Mini PC
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
