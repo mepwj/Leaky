@@ -238,6 +238,7 @@ export interface Account {
   bankName: string;
   alias: string | null;
   balance: string; // Prisma에서 Decimal 타입은 문자열로 반환됨
+  balanceSyncDate: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -312,6 +313,7 @@ export interface AssetSummary {
 
 export interface CashBalanceResponse {
   cashBalance: number;
+  cashSyncDate?: string;
 }
 
 export interface AssetSummaryResponse {
@@ -500,6 +502,14 @@ export const api = {
 
   updateCashBalance: async (balance: number): Promise<CashBalanceResponse> => {
     return patch<CashBalanceResponse>('/assets/cash', {balance});
+  },
+
+  syncAccountBalance: async (id: number, balance: number): Promise<AccountResponse> => {
+    return post<AccountResponse>(`/assets/accounts/${id}/sync`, {balance}, true);
+  },
+
+  syncCashBalance: async (balance: number): Promise<CashBalanceResponse> => {
+    return post<CashBalanceResponse>('/assets/cash/sync', {balance}, true);
   },
 
   // 공휴일 API (대체공휴일 포함)

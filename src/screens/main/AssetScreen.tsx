@@ -109,6 +109,7 @@ function AssetScreen(): React.JSX.Element {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [cashBalance, setCashBalance] = useState<number>(0);
+  const [cashSyncDate, setCashSyncDate] = useState<string | null>(null);
   const [editingCash, setEditingCash] = useState(false);
   const [cashInput, setCashInput] = useState('');
 
@@ -131,6 +132,7 @@ function AssetScreen(): React.JSX.Element {
       setCards(cardsRes.cards);
       setTransactions(transactionsRes.transactions);
       setCashBalance(cashRes.cashBalance);
+      setCashSyncDate(cashRes.cashSyncDate || null);
     } catch (error: unknown) {
       const message =
         error instanceof Error
@@ -394,8 +396,9 @@ function AssetScreen(): React.JSX.Element {
   const handleSaveCash = useCallback(async () => {
     try {
       setSaving(true);
-      const result = await api.updateCashBalance(Number(cashInput) || 0);
+      const result = await api.syncCashBalance(Number(cashInput) || 0);
       setCashBalance(result.cashBalance);
+      setCashSyncDate(result.cashSyncDate || null);
       setEditingCash(false);
       await fetchData();
     } catch (error: unknown) {
@@ -680,9 +683,16 @@ function AssetScreen(): React.JSX.Element {
               <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
                   <List.Icon icon="cash" />
-                  <Text variant="bodyMedium" style={{color: theme.colors.onSurface, fontWeight: '600', marginLeft: 8}}>
-                    {formatAmount(cashBalance)}
-                  </Text>
+                  <View>
+                    <Text variant="bodyMedium" style={{color: theme.colors.onSurface, fontWeight: '600', marginLeft: 8}}>
+                      {formatAmount(cashBalance)}
+                    </Text>
+                    {cashSyncDate && (
+                      <Text variant="bodySmall" style={{color: theme.colors.outline, marginLeft: 8}}>
+                        {'기준일 ' + new Date(cashSyncDate).toLocaleDateString('ko-KR')}
+                      </Text>
+                    )}
+                  </View>
                 </View>
                 <IconButton
                   icon="pencil-outline"
@@ -726,7 +736,10 @@ function AssetScreen(): React.JSX.Element {
                 {index > 0 && <Divider />}
                 <List.Item
                   title={account.alias || account.bankName}
-                  description={account.alias ? account.bankName : undefined}
+                  description={
+                    (account.alias ? account.bankName + ' · ' : '') +
+                    '기준일 ' + new Date(account.balanceSyncDate).toLocaleDateString('ko-KR')
+                  }
                   left={props => (
                     <List.Icon {...props} icon="bank" />
                   )}

@@ -42,6 +42,7 @@ router.post('/accounts', authMiddleware, async (req: Request, res: Response): Pr
         bankName: bankName.trim(),
         alias: alias ? String(alias).trim() : null,
         balance: balance !== undefined && balance !== null ? Number(balance) : 0,
+        balanceSyncDate: new Date(),
       },
     });
 
@@ -100,6 +101,7 @@ router.patch('/accounts/:id', authMiddleware, async (req: Request<{ id: string }
         return;
       }
       data.balance = Number(balance);
+      data.balanceSyncDate = new Date();
     }
 
     const account = await prisma.account.update({
@@ -358,9 +360,9 @@ router.get('/cash', authMiddleware, async (req: Request, res: Response): Promise
     const { userId } = req.user as JwtPayload;
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { cashBalance: true },
+      select: { cashBalance: true, cashSyncDate: true },
     });
-    res.json({ cashBalance: user ? Number(user.cashBalance) : 0 });
+    res.json({ cashBalance: user ? Number(user.cashBalance) : 0, cashSyncDate: user ? user.cashSyncDate : null });
   } catch (error) {
     console.error('Get cash balance error:', error);
     res.status(500).json({ error: 'Failed to get cash balance.' });
@@ -380,14 +382,85 @@ router.patch('/cash', authMiddleware, async (req: Request, res: Response): Promi
 
     const user = await prisma.user.update({
       where: { id: userId },
-      data: { cashBalance: Number(balance) },
-      select: { cashBalance: true },
+      data: { cashBalance: Number(balance), cashSyncDate: new Date() },
+      select: { cashBalance: true, cashSyncDate: true },
     });
 
-    res.json({ cashBalance: Number(user.cashBalance) });
+    res.json({ cashBalance: Number(user.cashBalance), cashSyncDate: user.cashSyncDate });
   } catch (error) {
     console.error('Update cash balance error:', error);
     res.status(500).json({ error: 'Failed to update cash balance.' });
+  }
+});
+
+// POST /assets/accounts/:id/sync - 잔액 맞추기
+router.post('/accounts/:id/sync', authMiddleware, async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.user as JwtPayload;
+    const id = parseInt(req.params.id, 10);
+    const { balance } = req.body;
+
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Invalid account ID.' });
+      return;
+    }
+
+    if (balance === undefined || balance === null || isNaN(Number(balance))) {
+      res.status(400).json({ error: 'balance must be a valid number.' });
+      return;
+    }
+
+    const existing = await prisma.account.findUnique({ where: { id } });
+
+    if (!existing) {
+      res.status(404).json({ error: 'Account not found.' });
+      return;
+    }
+
+    if (existing.userId !== userId) {
+      res.status(403).json({ error: 'You can only sync your own accounts.' });
+      return;
+    }
+
+    const account = await prisma.account.update({
+      where: { id },
+      data: {
+        balance: Number(balance),
+        balanceSyncDate: new Date(),
+      },
+    });
+
+    res.json({ account });
+  } catch (error) {
+    console.error('Sync account balance error:', error);
+    res.status(500).json({ error: 'Failed to sync account balance.' });
+  }
+});
+
+// POST /assets/cash/sync - 현금 잔액 맞추기
+router.post('/cash/sync', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.user as JwtPayload;
+    const { balance } = req.body;
+
+    if (balance === undefined || balance === null || isNaN(Number(balance))) {
+      res.status(400).json({ error: 'balance must be a valid number.' });
+      return;
+    }
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        cashBalance: Number(balance),
+        cashSyncDate: new Date(),
+      },
+      select: { cashBalance: true, cashSyncDate: true },
+    });
+
+    res.json({ cashBalance: Number(user.cashBalance), cashSyncDate: user.cashSyncDate });
+  } catch (error) {
+    console.error('Sync cash balance error:', error);
+    res.status(500).json({ error: 'Failed to sync cash balance.' });
   }
 });
 
