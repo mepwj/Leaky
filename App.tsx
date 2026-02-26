@@ -33,7 +33,8 @@ function App(): React.JSX.Element {
           backgroundColor={theme.colors.background}
         />
         <AuthProvider>
-          <NavigationContainer>
+          <NavigationContainer
+            documentTitle={{formatter: () => 'Leaky'}}>
             <RootNavigator />
           </NavigationContainer>
         </AuthProvider>
