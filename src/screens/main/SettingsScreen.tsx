@@ -325,14 +325,24 @@ function SettingsScreen(): React.JSX.Element {
             {email}
           </Text>
 
-          {/* 프로필 수정 버튼 */}
-          <Button
-            mode="outlined"
-            compact
-            onPress={openProfileDialog}
-            style={styles.profileEditButton}>
-            {'프로필 수정'}
-          </Button>
+          {/* 프로필/로그아웃 버튼 */}
+          <View style={styles.profileActionsRow}>
+            <Button
+              mode="outlined"
+              compact
+              onPress={openProfileDialog}
+              style={styles.profileEditButton}>
+              {'프로필 수정'}
+            </Button>
+            <Button
+              mode="outlined"
+              compact
+              onPress={handleLogout}
+              textColor={theme.colors.error}
+              style={[styles.profileEditButton, {borderColor: theme.colors.error}]}> 
+              {'로그아웃'}
+            </Button>
+          </View>
         </Surface>
 
         {/* ─── 카테고리 관리 섹션 ──────────────────────────── */}
@@ -440,16 +450,6 @@ function SettingsScreen(): React.JSX.Element {
           />
         </Surface>
 
-        {/* ─── 로그아웃 버튼 ───────────────────────────────── */}
-        <View style={styles.logoutContainer}>
-          <Button
-            mode="outlined"
-            onPress={handleLogout}
-            textColor={theme.colors.error}
-            style={[styles.logoutButton, {borderColor: theme.colors.error}]}>
-            {'로그아웃'}
-          </Button>
-        </View>
       </ScrollView>
 
       {/* ─── 프로필 수정 모달 ──────────────────────────────── */}
@@ -642,6 +642,10 @@ const styles = StyleSheet.create({
   profileEditButton: {
     borderRadius: 8,
   },
+  profileActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
 
   // ─── 섹션 공통 ──────────────────────────────────────────────
   sectionSurface: {
@@ -693,15 +697,6 @@ const styles = StyleSheet.create({
   },
   addCategoryButton: {
     marginVertical: 4,
-  },
-
-  // ─── 로그아웃 ────────────────────────────────────────────────
-  logoutContainer: {
-    marginHorizontal: 16,
-    marginTop: 24,
-  },
-  logoutButton: {
-    borderRadius: 8,
   },
 
   // ─── 모달 공통 ──────────────────────────────────────────────

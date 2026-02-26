@@ -216,7 +216,7 @@ function DailyDetailScreen({navigation, route}: Props): React.JSX.Element {
                           variant="bodySmall"
                           style={{color: theme.colors.outline}}
                           numberOfLines={1}>
-                          {'메모: ' + tx.memo}
+                          {tx.memo}
                         </Text>
                       ) : null}
                       <Text variant="labelSmall" style={{color: theme.colors.outline, marginTop: 2}}>

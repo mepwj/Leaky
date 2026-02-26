@@ -5,10 +5,12 @@ module.exports = function (api) {
   if (platform === 'web') {
     return {
       presets: ['babel-preset-expo'],
+      plugins: ['react-native-worklets/plugin'],
     };
   }
 
   return {
     presets: ['module:@react-native/babel-preset'],
+    plugins: ['react-native-worklets/plugin'],
   };
 };

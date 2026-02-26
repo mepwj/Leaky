@@ -1,10 +1,19 @@
 import {MD3LightTheme, MD3DarkTheme, configureFonts} from 'react-native-paper';
 
-const fontConfig = {
-  fontFamily: 'NanumGothic-Regular',
-};
+function applyNanumGothicFonts<T extends Record<string, {fontFamily: string}>>(baseFonts: T): T {
+  const result = {} as T;
+  for (const key of Object.keys(baseFonts) as Array<keyof T>) {
+    result[key] = {
+      ...baseFonts[key],
+      fontFamily: 'NanumGothic-Regular',
+    };
+  }
+  return result;
+}
 
-const fonts = configureFonts({config: fontConfig});
+const fonts = configureFonts({
+  config: applyNanumGothicFonts(MD3LightTheme.fonts),
+});
 
 export const lightTheme = {
   ...MD3LightTheme,

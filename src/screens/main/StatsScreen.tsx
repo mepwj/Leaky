@@ -1177,7 +1177,7 @@ function StatsScreen(): React.JSX.Element {
                           variant="bodySmall"
                           style={{color: theme.colors.outline, fontFamily: 'NanumGothic-Regular'}}
                           numberOfLines={2}>
-                          메모: {item.memo}
+                          {item.memo}
                         </Text>
                       ) : null}
                     </View>
@@ -1563,8 +1563,8 @@ const styles = StyleSheet.create({
   categoryDetailDialog: {
     width: '100%',
     height: '90%',
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
   },
   categoryDetailKeyboard: {
     flex: 1,

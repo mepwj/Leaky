@@ -3,6 +3,7 @@ import {Platform, StatusBar, useColorScheme} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {PaperProvider} from 'react-native-paper';
 import {NavigationContainer} from '@react-navigation/native';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {lightTheme} from './src/config/theme';
 import {GOOGLE_WEB_CLIENT_ID} from './src/config/env';
 import RootNavigator from './src/navigation/RootNavigator';
@@ -26,20 +27,22 @@ function App(): React.JSX.Element {
   const isDark = colorScheme === 'dark';
 
   return (
-    <SafeAreaProvider>
-      <PaperProvider theme={theme}>
-        <StatusBar
-          barStyle={isDark ? 'light-content' : 'dark-content'}
-          backgroundColor={theme.colors.background}
-        />
-        <AuthProvider>
-          <NavigationContainer
-            documentTitle={{formatter: () => 'Leaky'}}>
-            <RootNavigator />
-          </NavigationContainer>
-        </AuthProvider>
-      </PaperProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{flex: 1}}>
+      <SafeAreaProvider>
+        <PaperProvider theme={theme}>
+          <StatusBar
+            barStyle={isDark ? 'light-content' : 'dark-content'}
+            backgroundColor={theme.colors.background}
+          />
+          <AuthProvider>
+            <NavigationContainer
+              documentTitle={{formatter: () => 'Leaky'}}>
+              <RootNavigator />
+            </NavigationContainer>
+          </AuthProvider>
+        </PaperProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

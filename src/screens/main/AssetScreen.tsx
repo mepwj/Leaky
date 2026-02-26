@@ -23,8 +23,10 @@ import {
   Divider,
   SegmentedButtons,
 } from 'react-native-paper';
+import DraggableFlatList, {RenderItemParams} from 'react-native-draggable-flatlist';
 import {useFocusEffect} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {MaterialCommunityIcons} from '../../components/Icon';
 import {
   api,
   Account,
@@ -138,6 +140,8 @@ function AssetScreen(): React.JSX.Element {
   const [cashSyncDate, setCashSyncDate] = useState<string | null>(null);
   const [editingCash, setEditingCash] = useState(false);
   const [cashInput, setCashInput] = useState('');
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
   // 다이얼로그 상태
   const [dialog, setDialog] = useState<DialogState>(initialAccountDialog);
@@ -417,47 +421,75 @@ function AssetScreen(): React.JSX.Element {
     [fetchData],
   );
 
-  const moveAccount = useCallback(async (index: number, direction: -1 | 1) => {
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= accounts.length) {
-      return;
-    }
-
-    const reordered = [...accounts];
-    const [moved] = reordered.splice(index, 1);
-    reordered.splice(targetIndex, 0, moved);
-
-    setAccounts(reordered);
-
+  const handleAccountDragEnd = useCallback(async (nextData: Account[]) => {
+    setAccounts(nextData);
     try {
-      await api.reorderAccounts(reordered.map(item => item.id));
+      await api.reorderAccounts(nextData.map(item => item.id));
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '순서 변경에 실패했습니다.';
       Alert.alert('오류', message);
       await fetchData();
     }
-  }, [accounts, fetchData]);
+  }, [fetchData]);
 
-  const moveCard = useCallback(async (index: number, direction: -1 | 1) => {
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= cards.length) {
-      return;
-    }
-
-    const reordered = [...cards];
-    const [moved] = reordered.splice(index, 1);
-    reordered.splice(targetIndex, 0, moved);
-
-    setCards(reordered);
-
+  const handleCardDragEnd = useCallback(async (nextData: Card[]) => {
+    setCards(nextData);
     try {
-      await api.reorderCards(reordered.map(item => item.id));
+      await api.reorderCards(nextData.map(item => item.id));
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '순서 변경에 실패했습니다.';
       Alert.alert('오류', message);
       await fetchData();
     }
-  }, [cards, fetchData]);
+  }, [fetchData]);
+
+  const openAccountActionModal = useCallback((account: Account) => {
+    setSelectedAccount(account);
+  }, []);
+
+  const closeAccountActionModal = useCallback(() => {
+    setSelectedAccount(null);
+  }, []);
+
+  const openCardActionModal = useCallback((card: Card) => {
+    setSelectedCard(card);
+  }, []);
+
+  const closeCardActionModal = useCallback(() => {
+    setSelectedCard(null);
+  }, []);
+
+  const handleEditSelectedAccount = useCallback(() => {
+    if (!selectedAccount) {
+      return;
+    }
+    closeAccountActionModal();
+    openEditAccountDialog(selectedAccount);
+  }, [selectedAccount, closeAccountActionModal, openEditAccountDialog]);
+
+  const handleDeleteSelectedAccount = useCallback(() => {
+    if (!selectedAccount) {
+      return;
+    }
+    closeAccountActionModal();
+    handleDeleteAccount(selectedAccount);
+  }, [selectedAccount, closeAccountActionModal, handleDeleteAccount]);
+
+  const handleEditSelectedCard = useCallback(() => {
+    if (!selectedCard) {
+      return;
+    }
+    closeCardActionModal();
+    openEditCardDialog(selectedCard);
+  }, [selectedCard, closeCardActionModal, openEditCardDialog]);
+
+  const handleDeleteSelectedCard = useCallback(() => {
+    if (!selectedCard) {
+      return;
+    }
+    closeCardActionModal();
+    handleDeleteCard(selectedCard);
+  }, [selectedCard, closeCardActionModal, handleDeleteCard]);
 
   // ─── 현금 저장 핸들러 ────────────────────────────────────────
 
@@ -639,6 +671,52 @@ function AssetScreen(): React.JSX.Element {
 
   const handleDialogSave = dialog.target === 'account' ? handleSaveAccount : handleSaveCard;
 
+  const renderAccountRow = useCallback((account: Account, drag?: () => void) => (
+    <TouchableOpacity
+      style={styles.assetRow}
+      activeOpacity={0.75}
+      onPress={() => openAccountActionModal(account)}
+      onLongPress={drag}>
+      <View style={styles.assetRowLeft}>
+        <MaterialCommunityIcons name="bank" size={18} style={styles.assetIcon} />
+        <Text variant="bodyMedium" numberOfLines={1} style={[styles.assetRowTitle, {color: theme.colors.onSurface}]}>
+          {account.alias || account.bankName}
+        </Text>
+      </View>
+      <View style={styles.assetRowRight}>
+        <Text variant="bodyMedium" style={[styles.assetRowAmount, {color: theme.colors.onSurface}]}>
+          {formatAmount(Number(account.balance))}
+        </Text>
+        <TouchableOpacity onLongPress={drag} delayLongPress={120} style={styles.dragHandleTouch}>
+          <MaterialCommunityIcons name="drag" size={20} color={theme.colors.outline} />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  ), [openAccountActionModal, theme.colors.onSurface, theme.colors.outline]);
+
+  const renderCardRow = useCallback((card: Card, drag?: () => void) => (
+    <TouchableOpacity
+      style={styles.assetRow}
+      activeOpacity={0.75}
+      onPress={() => openCardActionModal(card)}
+      onLongPress={drag}>
+      <View style={styles.assetRowLeft}>
+        <MaterialCommunityIcons name="credit-card-outline" size={18} style={styles.assetIcon} />
+        <Text variant="bodyMedium" numberOfLines={1} style={[styles.assetRowTitle, {color: theme.colors.onSurface}]}>
+          {card.alias || card.cardCompany}
+        </Text>
+      </View>
+      <View style={styles.assetRowRight}>
+        <Text variant="bodySmall" style={{color: theme.colors.outline}}>
+          {card.cardType === 'check' ? '체크카드' : '신용카드'}
+        </Text>
+        <TouchableOpacity onLongPress={drag} delayLongPress={120} style={styles.dragHandleTouch}>
+          <MaterialCommunityIcons name="drag" size={20} color={theme.colors.outline} />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  ), [openCardActionModal, theme.colors.onSurface, theme.colors.outline]);
+
   // ─── 렌더링 ───────────────────────────────────────────────────
 
   if (loading && accounts.length === 0 && cards.length === 0) {
@@ -780,7 +858,7 @@ function AssetScreen(): React.JSX.Element {
           <View style={styles.sectionHeader}>
             <Text
               variant="titleSmall"
-              style={[styles.sectionTitle, {color: theme.colors.onSurface}]}>
+              style={[styles.sectionTitle, {color: theme.colors.onSurface}]}> 
               {'계좌'}
             </Text>
             <Button
@@ -799,58 +877,20 @@ function AssetScreen(): React.JSX.Element {
               </Text>
             </View>
           ) : (
-            accounts.map((account, index) => (
-              <React.Fragment key={account.id}>
-                {index > 0 && <Divider />}
-                <List.Item
-                  title={account.alias || account.bankName}
-                  description={
-                    (account.alias ? account.bankName + ' · ' : '') +
-                    '잔액 설정일 ' + formatKstDateTime(account.balanceSyncDate)
-                  }
-                  left={props => (
-                    <List.Icon {...props} icon="bank" />
-                  )}
-                  right={() => (
-                    <View style={styles.listRight}>
-                      <Text
-                        variant="bodyMedium"
-                        style={{
-                          color: theme.colors.onSurface,
-                          fontWeight: '600',
-                          marginRight: 4,
-                        }}>
-                        {formatAmount(Number(account.balance))}
-                      </Text>
-                      <IconButton
-                        icon="chevron-up"
-                        size={18}
-                        disabled={index === 0}
-                        onPress={() => moveAccount(index, -1)}
-                      />
-                      <IconButton
-                        icon="chevron-down"
-                        size={18}
-                        disabled={index === accounts.length - 1}
-                        onPress={() => moveAccount(index, 1)}
-                      />
-                      <IconButton
-                        icon="pencil-outline"
-                        size={18}
-                        onPress={() => openEditAccountDialog(account)}
-                      />
-                      <IconButton
-                        icon="delete-outline"
-                        size={18}
-                        iconColor={theme.colors.error}
-                        onPress={() => handleDeleteAccount(account)}
-                      />
-                    </View>
-                  )}
-                  style={styles.listItem}
-                />
-              </React.Fragment>
-            ))
+            <DraggableFlatList
+              data={accounts}
+              keyExtractor={item => String(item.id)}
+              scrollEnabled={false}
+              onDragEnd={({data}) => {
+                void handleAccountDragEnd(data);
+              }}
+              renderItem={({item, drag, isActive}: RenderItemParams<Account>) => (
+                <View style={[styles.draggableItemWrap, isActive && styles.draggableItemActive]}>
+                  {renderAccountRow(item, drag)}
+                </View>
+              )}
+              ItemSeparatorComponent={Divider}
+            />
           )}
         </Surface>
 
@@ -878,51 +918,20 @@ function AssetScreen(): React.JSX.Element {
               </Text>
             </View>
           ) : (
-            cards.map((card, index) => (
-              <React.Fragment key={card.id}>
-                {index > 0 && <Divider />}
-                <List.Item
-                  title={card.alias || card.cardCompany}
-                  description={
-                    (card.cardType === 'check' ? '체크카드' : '신용카드') +
-                    (card.alias ? ` · ${card.cardCompany}` : '') +
-                    (card.paymentDay ? ` · 결제일 ${card.paymentDay}일` : '') +
-                    (card.cardType === 'check' && card.linkedAccount ? ` · ${card.linkedAccount.alias || card.linkedAccount.bankName}` : '')
-                  }
-                  left={props => (
-                    <List.Icon {...props} icon="credit-card" />
-                  )}
-                  right={() => (
-                    <View style={styles.listRight}>
-                      <IconButton
-                        icon="chevron-up"
-                        size={18}
-                        disabled={index === 0}
-                        onPress={() => moveCard(index, -1)}
-                      />
-                      <IconButton
-                        icon="chevron-down"
-                        size={18}
-                        disabled={index === cards.length - 1}
-                        onPress={() => moveCard(index, 1)}
-                      />
-                      <IconButton
-                        icon="pencil-outline"
-                        size={18}
-                        onPress={() => openEditCardDialog(card)}
-                      />
-                      <IconButton
-                        icon="delete-outline"
-                        size={18}
-                        iconColor={theme.colors.error}
-                        onPress={() => handleDeleteCard(card)}
-                      />
-                    </View>
-                  )}
-                  style={styles.listItem}
-                />
-              </React.Fragment>
-            ))
+            <DraggableFlatList
+              data={cards}
+              keyExtractor={item => String(item.id)}
+              scrollEnabled={false}
+              onDragEnd={({data}) => {
+                void handleCardDragEnd(data);
+              }}
+              renderItem={({item, drag, isActive}: RenderItemParams<Card>) => (
+                <View style={[styles.draggableItemWrap, isActive && styles.draggableItemActive]}>
+                  {renderCardRow(item, drag)}
+                </View>
+              )}
+              ItemSeparatorComponent={Divider}
+            />
           )}
         </Surface>
       </ScrollView>
@@ -962,6 +971,52 @@ function AssetScreen(): React.JSX.Element {
               </View>
             </Pressable>
           </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={!!selectedAccount}
+        transparent
+        animationType="fade"
+        onRequestClose={closeAccountActionModal}>
+        <Pressable style={styles.modalOverlay} onPress={closeAccountActionModal}>
+          <Pressable style={[styles.actionModalContainer, {backgroundColor: theme.colors.surface}]} onPress={() => {}}>
+            <Text variant="titleMedium" style={[styles.actionModalTitle, {color: theme.colors.onSurface}]}> 
+              {selectedAccount?.alias || selectedAccount?.bankName}
+            </Text>
+            <Button mode="contained" onPress={handleEditSelectedAccount} style={styles.actionPrimaryButton}>
+              수정
+            </Button>
+            <Button mode="outlined" textColor={theme.colors.error} onPress={handleDeleteSelectedAccount} style={[styles.actionDangerButton, {borderColor: theme.colors.error}]}> 
+              삭제
+            </Button>
+            <Button mode="text" onPress={closeAccountActionModal}>
+              닫기
+            </Button>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={!!selectedCard}
+        transparent
+        animationType="fade"
+        onRequestClose={closeCardActionModal}>
+        <Pressable style={styles.modalOverlay} onPress={closeCardActionModal}>
+          <Pressable style={[styles.actionModalContainer, {backgroundColor: theme.colors.surface}]} onPress={() => {}}>
+            <Text variant="titleMedium" style={[styles.actionModalTitle, {color: theme.colors.onSurface}]}> 
+              {selectedCard?.alias || selectedCard?.cardCompany}
+            </Text>
+            <Button mode="contained" onPress={handleEditSelectedCard} style={styles.actionPrimaryButton}>
+              수정
+            </Button>
+            <Button mode="outlined" textColor={theme.colors.error} onPress={handleDeleteSelectedCard} style={[styles.actionDangerButton, {borderColor: theme.colors.error}]}> 
+              삭제
+            </Button>
+            <Button mode="text" onPress={closeCardActionModal}>
+              닫기
+            </Button>
+          </Pressable>
         </Pressable>
       </Modal>
     </View>
@@ -1016,12 +1071,63 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
   },
+  sectionHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   sectionTitle: {
     fontWeight: '600',
+  },
+  reorderHint: {
+    paddingHorizontal: 14,
+    paddingBottom: 6,
   },
   emptyContainer: {
     paddingVertical: 24,
     alignItems: 'center',
+  },
+  assetRow: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  assetRowLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 12,
+  },
+  assetIcon: {
+    marginRight: 10,
+    color: '#666',
+  },
+  assetRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  assetRowTitle: {
+    flex: 1,
+    fontFamily: 'NanumGothic-Bold',
+  },
+  assetRowAmount: {
+    fontFamily: 'NanumGothic-Bold',
+    marginRight: 2,
+  },
+  dragHandleTouch: {
+    marginLeft: 10,
+    padding: 4,
+  },
+  draggableItemWrap: {
+    backgroundColor: 'transparent',
+  },
+  draggableItemActive: {
+    backgroundColor: 'rgba(33, 150, 243, 0.08)',
+    borderRadius: 10,
   },
   listItem: {
     paddingRight: 4,
@@ -1062,6 +1168,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   dialogSaveButton: {
+    borderRadius: 8,
+  },
+  actionModalContainer: {
+    width: '100%',
+    borderRadius: 14,
+    padding: 18,
+    gap: 8,
+  },
+  actionModalTitle: {
+    marginBottom: 8,
+    fontFamily: 'NanumGothic-Bold',
+  },
+  actionPrimaryButton: {
+    borderRadius: 8,
+  },
+  actionDangerButton: {
     borderRadius: 8,
   },
 });

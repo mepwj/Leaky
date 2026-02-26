@@ -564,7 +564,7 @@ function HomeScreen(): React.JSX.Element {
                           variant="bodySmall"
                           style={{color: theme.colors.outline}}
                           numberOfLines={1}>
-                          {'메모: ' + tx.memo}
+                          {tx.memo}
                         </Text>
                       ) : null}
                     </View>
