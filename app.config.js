@@ -7,6 +7,7 @@ module.exports = {
     bundler: 'metro',
     output: 'single',
     title: 'Leaky',
+    lang: 'ko',
   },
   plugins: ['expo-font'],
 };
