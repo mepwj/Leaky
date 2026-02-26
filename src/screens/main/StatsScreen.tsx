@@ -1137,7 +1137,7 @@ function StatsScreen(): React.JSX.Element {
         <Pressable style={styles.modalOverlay} onPress={() => setCategoryDetailModalVisible(false)}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.modalKeyboard}>
+            style={[styles.modalKeyboard, styles.categoryDetailKeyboard]}>
             <Pressable
               style={[styles.dialogContainer, styles.categoryDetailDialog, {backgroundColor: theme.colors.surface}]}
               onPress={() => {}}>
@@ -1162,7 +1162,7 @@ function StatsScreen(): React.JSX.Element {
                 style={styles.categorySortSegment}
               />
 
-              <ScrollView style={styles.categoryDetailModalList}>
+              <ScrollView style={styles.categoryDetailModalList} contentContainerStyle={styles.categoryDetailModalListContent}>
                 {selectedCategoryTransactions.map(item => (
                   <View key={`cat-modal-tx-${item.id}`} style={styles.categoryTransactionItem}>
                     <View style={styles.categoryTransactionLeft}>
@@ -1561,11 +1561,22 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   categoryDetailDialog: {
-    maxHeight: '92%',
+    width: '100%',
+    height: '90%',
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  categoryDetailKeyboard: {
+    flex: 1,
+    justifyContent: 'flex-end',
   },
   categoryDetailModalList: {
+    flex: 1,
     marginTop: 10,
     marginBottom: 6,
+  },
+  categoryDetailModalListContent: {
+    paddingBottom: 8,
   },
 });
 
