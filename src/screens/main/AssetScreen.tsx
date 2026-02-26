@@ -64,7 +64,7 @@ function formatKstDateTime(dateString: string): string {
   const hour = getPart('hour');
   const minute = getPart('minute');
 
-  return `${year}. ${month}. ${day}. ${hour}:${minute} KST`;
+  return `${year}. ${month}. ${day}. ${hour}:${minute}`;
 }
 
 function getCurrentMonthString(): string {

@@ -146,6 +146,16 @@ interface PaymentUsageStat {
   color: string;
 }
 
+type CategoryDetailSort = 'date' | 'amount';
+
+interface CategoryTransactionItem {
+  id: number;
+  title: string;
+  memo: string | null;
+  amount: number;
+  date: string;
+}
+
 // ─── 예산 진행률 색상 결정 ─────────────────────────────────────────
 function getBudgetColor(percentage: number): string {
   if (percentage > 90) return '#F44336';    // 빨강 (위험)
@@ -185,6 +195,8 @@ function StatsScreen(): React.JSX.Element {
   const [budgetAmount, setBudgetAmount] = useState('');
   const [budgetSaving, setBudgetSaving] = useState(false);
   const [editingBudgetId, setEditingBudgetId] = useState<number | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [categoryDetailSort, setCategoryDetailSort] = useState<CategoryDetailSort>('date');
 
   // ─── 월 문자열 계산 ─────────────────────────────────────────
   const monthString = useMemo(() => getMonthString(currentMonth), [currentMonth]);
@@ -430,6 +442,41 @@ function StatsScreen(): React.JSX.Element {
   const activeCategoryExpenseStats =
     period === 'month' ? categoryExpenseStats : weeklyCategoryExpenseStats;
   const activeTransactions = period === 'month' ? transactions : weeklyTransactions;
+
+  useEffect(() => {
+    if (activeCategoryExpenseStats.length === 0) {
+      setSelectedCategoryId(null);
+      return;
+    }
+
+    const exists = activeCategoryExpenseStats.some(stat => stat.categoryId === selectedCategoryId);
+    if (!exists) {
+      setSelectedCategoryId(activeCategoryExpenseStats[0].categoryId);
+    }
+  }, [activeCategoryExpenseStats, selectedCategoryId]);
+
+  const selectedCategoryTransactions = useMemo((): CategoryTransactionItem[] => {
+    if (selectedCategoryId === null) {
+      return [];
+    }
+
+    const items = activeTransactions
+      .filter(tx => tx.type === 'expense' && ((tx.categoryId ?? 0) === selectedCategoryId))
+      .map(tx => ({
+        id: tx.id,
+        title: tx.title || tx.category?.name || '제목 없음',
+        memo: tx.memo,
+        amount: Number(tx.amount),
+        date: tx.date,
+      }));
+
+    return [...items].sort((a, b) => {
+      if (categoryDetailSort === 'amount') {
+        return b.amount - a.amount;
+      }
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+  }, [activeTransactions, selectedCategoryId, categoryDetailSort]);
 
   // ─── 파이차트 데이터 ───────────────────────────────────────────
   const pieData = useMemo(() => {
@@ -832,6 +879,107 @@ function StatsScreen(): React.JSX.Element {
                     </View>
                   </View>
                 ))}
+              </View>
+
+              {/* 카테고리별 상세 내역 */}
+              <View style={[styles.categoryDetailSection, {borderTopColor: theme.colors.outline + '20'}]}>
+                <Text
+                  variant="bodyMedium"
+                  style={{color: theme.colors.onSurface, fontFamily: 'NanumGothic-Bold', marginBottom: 8}}>
+                  카테고리 상세 내역
+                </Text>
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.categoryChipRow}>
+                  {activeCategoryExpenseStats.map(stat => {
+                    const selected = selectedCategoryId === stat.categoryId;
+                    return (
+                      <TouchableOpacity
+                        key={`cat-chip-${stat.categoryId}`}
+                        style={[
+                          styles.categoryChip,
+                          {
+                            borderColor: selected ? stat.color : theme.colors.outline + '30',
+                            backgroundColor: selected ? stat.color + '20' : 'transparent',
+                          },
+                        ]}
+                        onPress={() => setSelectedCategoryId(stat.categoryId)}>
+                        <Text style={styles.legendIcon}>{stat.categoryIcon}</Text>
+                        <Text
+                          variant="bodySmall"
+                          style={{
+                            color: selected ? theme.colors.onSurface : theme.colors.outline,
+                            fontFamily: selected ? 'NanumGothic-Bold' : 'NanumGothic-Regular',
+                          }}>
+                          {stat.categoryName}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+
+                <SegmentedButtons
+                  value={categoryDetailSort}
+                  onValueChange={value => setCategoryDetailSort(value as CategoryDetailSort)}
+                  buttons={[
+                    {value: 'date', label: '날짜순'},
+                    {value: 'amount', label: '금액순'},
+                  ]}
+                  style={styles.categorySortSegment}
+                />
+
+                {selectedCategoryTransactions.length === 0 ? (
+                  <View style={styles.emptyContainer}>
+                    <Text variant="bodySmall" style={{color: theme.colors.outline, fontFamily: 'NanumGothic-Regular'}}>
+                      해당 카테고리 지출 내역이 없습니다.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.categoryTransactionList}>
+                    {selectedCategoryTransactions.slice(0, 10).map(item => (
+                      <View key={`cat-tx-${item.id}`} style={styles.categoryTransactionItem}>
+                        <View style={styles.categoryTransactionLeft}>
+                          <Text
+                            variant="bodyMedium"
+                            style={{color: theme.colors.onSurface, fontFamily: 'NanumGothic-Bold'}}
+                            numberOfLines={1}>
+                            {item.title}
+                          </Text>
+                          {item.memo ? (
+                            <Text
+                              variant="bodySmall"
+                              style={{color: theme.colors.outline, fontFamily: 'NanumGothic-Regular'}}
+                              numberOfLines={1}>
+                              메모: {item.memo}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <View style={styles.categoryTransactionRight}>
+                          <Text
+                            variant="bodyMedium"
+                            style={{color: theme.colors.error, fontFamily: 'NanumGothic-Bold'}}>
+                            -{formatAmount(item.amount)}
+                          </Text>
+                          <Text
+                            variant="bodySmall"
+                            style={{color: theme.colors.outline, fontFamily: 'NanumGothic-Regular'}}>
+                            {new Date(item.date).toLocaleDateString('ko-KR')}
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {selectedCategoryTransactions.length > 10 && (
+                  <Text
+                    variant="bodySmall"
+                    style={{color: theme.colors.outline, marginTop: 6, fontFamily: 'NanumGothic-Regular'}}>
+                    최근 상위 10건만 표시됩니다.
+                  </Text>
+                )}
               </View>
             </>
           )}
@@ -1269,6 +1417,45 @@ const styles = StyleSheet.create({
   legendRight: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+
+  categoryDetailSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  categoryChipRow: {
+    paddingBottom: 4,
+    gap: 8,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  categorySortSegment: {
+    marginTop: 10,
+  },
+  categoryTransactionList: {
+    marginTop: 10,
+  },
+  categoryTransactionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
+  },
+  categoryTransactionLeft: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  categoryTransactionRight: {
+    alignItems: 'flex-end',
   },
 
   // 빈 상태

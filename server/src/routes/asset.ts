@@ -64,7 +64,7 @@ router.post('/accounts', authMiddleware, async (req: Request, res: Response): Pr
 
 // PATCH /assets/accounts/:id
 // 현재 사용자가 소유한 계좌를 수정.
-router.patch('/accounts/:id', authMiddleware, async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+router.patch('/accounts/:id(\\d+)', authMiddleware, async (req: Request<{ id: string }>, res: Response): Promise<void> => {
   try {
     const { userId } = req.user as JwtPayload;
     const id = parseInt(req.params.id, 10);
@@ -127,7 +127,7 @@ router.patch('/accounts/:id', authMiddleware, async (req: Request<{ id: string }
 
 // DELETE /assets/accounts/:id
 // 현재 사용자가 소유한 계좌를 삭제.
-router.delete('/accounts/:id', authMiddleware, async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+router.delete('/accounts/:id(\\d+)', authMiddleware, async (req: Request<{ id: string }>, res: Response): Promise<void> => {
   try {
     const { userId } = req.user as JwtPayload;
     const id = parseInt(req.params.id, 10);
@@ -303,7 +303,7 @@ router.post('/cards', authMiddleware, async (req: Request, res: Response): Promi
 
 // PATCH /assets/cards/:id
 // 현재 사용자가 소유한 카드를 수정.
-router.patch('/cards/:id', authMiddleware, async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+router.patch('/cards/:id(\\d+)', authMiddleware, async (req: Request<{ id: string }>, res: Response): Promise<void> => {
   try {
     const { userId } = req.user as JwtPayload;
     const id = parseInt(req.params.id, 10);
@@ -391,7 +391,7 @@ router.patch('/cards/:id', authMiddleware, async (req: Request<{ id: string }>, 
 
 // DELETE /assets/cards/:id
 // 현재 사용자가 소유한 카드를 삭제.
-router.delete('/cards/:id', authMiddleware, async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+router.delete('/cards/:id(\\d+)', authMiddleware, async (req: Request<{ id: string }>, res: Response): Promise<void> => {
   try {
     const { userId } = req.user as JwtPayload;
     const id = parseInt(req.params.id, 10);
@@ -519,7 +519,7 @@ router.patch('/cash', authMiddleware, async (req: Request, res: Response): Promi
 });
 
 // POST /assets/accounts/:id/sync - 잔액 맞추기
-router.post('/accounts/:id/sync', authMiddleware, async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+router.post('/accounts/:id(\\d+)/sync', authMiddleware, async (req: Request<{ id: string }>, res: Response): Promise<void> => {
   try {
     const { userId } = req.user as JwtPayload;
     const id = parseInt(req.params.id, 10);
