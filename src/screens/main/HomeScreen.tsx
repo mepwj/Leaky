@@ -348,8 +348,7 @@ function HomeScreen(): React.JSX.Element {
 
   const handleDayPress = useCallback((dateString: string) => {
     setSelectedDate(dateString);
-    navigation.navigate('DailyDetail', {date: dateString});
-  }, [navigation]);
+  }, []);
 
   const handleDelete = useCallback(
     async (id: number) => {
