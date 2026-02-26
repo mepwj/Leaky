@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   RefreshControl,
+  GestureResponderEvent,
 } from 'react-native';
 import {Text, Surface, useTheme, Divider, ActivityIndicator, IconButton} from 'react-native-paper';
 import {useFocusEffect} from '@react-navigation/native';
@@ -234,7 +235,10 @@ function DailyDetailScreen({navigation, route}: Props): React.JSX.Element {
                         size={18}
                         iconColor={theme.colors.error}
                         style={styles.deleteButton}
-                        onPress={() => handleDelete(tx.id)}
+                        onPress={(e: GestureResponderEvent) => {
+                          e.stopPropagation();
+                          handleDelete(tx.id);
+                        }}
                       />
                     )}
                   </View>

@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Modal,
   Pressable,
+  GestureResponderEvent,
 } from 'react-native';
 import {
   Text,
@@ -565,19 +566,22 @@ function HomeScreen(): React.JSX.Element {
                       {tx.type === 'income' ? '+' : '-'}
                       {formatAmount(Number(tx.amount))}
                     </Text>
-                    {deleting === tx.id ? (
-                      <ActivityIndicator size={16} style={{marginTop: 4}} />
-                    ) : (
-                      <IconButton
-                        icon="trash-can-outline"
-                        size={18}
-                        iconColor={theme.colors.error}
-                        style={styles.deleteButton}
-                        onPress={() => handleDelete(tx.id)}
-                      />
-                    )}
-                  </View>
-                </TouchableOpacity>
+                      {deleting === tx.id ? (
+                        <ActivityIndicator size={16} style={{marginTop: 4}} />
+                      ) : (
+                        <IconButton
+                          icon="trash-can-outline"
+                          size={18}
+                          iconColor={theme.colors.error}
+                          style={styles.deleteButton}
+                          onPress={(e: GestureResponderEvent) => {
+                            e.stopPropagation();
+                            handleDelete(tx.id);
+                          }}
+                        />
+                      )}
+                    </View>
+                  </TouchableOpacity>
               </React.Fragment>
             ))
           )}

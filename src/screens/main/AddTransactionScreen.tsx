@@ -65,6 +65,7 @@ function AddTransactionScreen(): React.JSX.Element {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   const typeColor = type === 'income' ? '#2196F3' : theme.colors.error;
@@ -262,6 +263,32 @@ function AddTransactionScreen(): React.JSX.Element {
     }
   };
 
+  const handleDelete = useCallback(() => {
+    if (!editTransaction) {
+      return;
+    }
+
+    Alert.alert('삭제 확인', '이 거래내역을 삭제하시겠습니까?', [
+      {text: '취소', style: 'cancel'},
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            setDeleting(true);
+            await api.deleteTransaction(editTransaction.id);
+            navigation.goBack();
+          } catch (error) {
+            console.error('Failed to delete transaction:', error);
+            Alert.alert('오류', '삭제에 실패했습니다. 다시 시도해주세요.');
+          } finally {
+            setDeleting(false);
+          }
+        },
+      },
+    ]);
+  }, [editTransaction, navigation]);
+
   const renderCategoryGrid = () => {
     if (loadingCategories) {
       return (
@@ -368,7 +395,17 @@ function AddTransactionScreen(): React.JSX.Element {
               ? (type === 'income' ? '수입' : '지출') + ' 수정'
               : (type === 'income' ? '수입' : '지출') + ' 등록'}
           </Text>
-          <View style={styles.headerSpacer} />
+          {editTransaction ? (
+            <IconButton
+              icon="trash-can-outline"
+              size={22}
+              iconColor={theme.colors.error}
+              onPress={handleDelete}
+              disabled={saving || deleting}
+            />
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
         </View>
 
         <ScrollView
@@ -660,7 +697,7 @@ function AddTransactionScreen(): React.JSX.Element {
               mode="contained"
               onPress={handleSave}
               loading={saving}
-              disabled={saving || !amount || Number(amount) === 0}
+              disabled={saving || deleting || !amount || Number(amount) === 0}
               style={[styles.saveButton, {backgroundColor: typeColor}]}
               labelStyle={styles.saveButtonLabel}
               contentStyle={styles.saveButtonContent}>
