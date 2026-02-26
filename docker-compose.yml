@@ -11,5 +11,9 @@ services:
       - .env.production
     environment:
       - PORT=3000
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    networks:
+      - leaky_default
+
+networks:
+  leaky_default:
+    external: true
