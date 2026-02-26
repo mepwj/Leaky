@@ -243,7 +243,10 @@ export interface Card {
   userId: number;
   cardCompany: string;
   alias: string | null;
+  cardType: string;
   paymentDay: number | null;
+  linkedAccountId: number | null;
+  linkedAccount?: Account | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -271,13 +274,17 @@ export interface UpdateAccountData {
 export interface CreateCardData {
   cardCompany: string;
   alias?: string;
+  cardType?: string;
   paymentDay?: number;
+  linkedAccountId?: number;
 }
 
 export interface UpdateCardData {
   cardCompany?: string;
   alias?: string | null;
+  cardType?: string;
   paymentDay?: number | null;
+  linkedAccountId?: number | null;
 }
 
 export interface AccountResponse {

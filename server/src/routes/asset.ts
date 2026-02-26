@@ -158,6 +158,7 @@ router.get('/cards', authMiddleware, async (req: Request, res: Response): Promis
 
     const cards = await prisma.card.findMany({
       where: { userId },
+      include: { linkedAccount: true },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -173,7 +174,7 @@ router.get('/cards', authMiddleware, async (req: Request, res: Response): Promis
 router.post('/cards', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId } = req.user as JwtPayload;
-    const { cardCompany, alias, paymentDay } = req.body;
+    const { cardCompany, alias, cardType, paymentDay, linkedAccountId } = req.body;
 
     if (!cardCompany || typeof cardCompany !== 'string' || !cardCompany.trim()) {
       res.status(400).json({ error: 'cardCompany is required.' });
@@ -188,12 +189,35 @@ router.post('/cards', authMiddleware, async (req: Request, res: Response): Promi
       }
     }
 
+    // 카드 타입 검증
+    if (cardType && !['credit', 'check'].includes(cardType)) {
+      res.status(400).json({ error: 'cardType must be "credit" or "check".' });
+      return;
+    }
+
+    // 체크카드일 때 연결 계좌 필수
+    if (cardType === 'check' && !linkedAccountId) {
+      res.status(400).json({ error: 'linkedAccountId is required for check cards.' });
+      return;
+    }
+
+    // 연결 계좌 소유권 확인
+    if (linkedAccountId) {
+      const linkedAccount = await prisma.account.findUnique({ where: { id: Number(linkedAccountId) } });
+      if (!linkedAccount || linkedAccount.userId !== userId) {
+        res.status(400).json({ error: 'Invalid linkedAccountId.' });
+        return;
+      }
+    }
+
     const card = await prisma.card.create({
       data: {
         userId,
         cardCompany: cardCompany.trim(),
         alias: alias ? String(alias).trim() : null,
+        cardType: cardType || 'credit',
         paymentDay: paymentDay !== undefined && paymentDay !== null ? Number(paymentDay) : null,
+        linkedAccountId: linkedAccountId ? Number(linkedAccountId) : null,
       },
     });
 
@@ -229,7 +253,7 @@ router.patch('/cards/:id', authMiddleware, async (req: Request<{ id: string }>, 
       return;
     }
 
-    const { cardCompany, alias, paymentDay } = req.body;
+    const { cardCompany, alias, cardType, paymentDay, linkedAccountId } = req.body;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: any = {};
@@ -256,6 +280,27 @@ router.patch('/cards/:id', authMiddleware, async (req: Request<{ id: string }>, 
           return;
         }
         data.paymentDay = day;
+      }
+    }
+
+    if (cardType !== undefined) {
+      if (!['credit', 'check'].includes(cardType)) {
+        res.status(400).json({ error: 'cardType must be "credit" or "check".' });
+        return;
+      }
+      data.cardType = cardType;
+    }
+
+    if (linkedAccountId !== undefined) {
+      if (linkedAccountId === null) {
+        data.linkedAccountId = null;
+      } else {
+        const linkedAccount = await prisma.account.findUnique({ where: { id: Number(linkedAccountId) } });
+        if (!linkedAccount || linkedAccount.userId !== userId) {
+          res.status(400).json({ error: 'Invalid linkedAccountId.' });
+          return;
+        }
+        data.linkedAccountId = Number(linkedAccountId);
       }
     }
 

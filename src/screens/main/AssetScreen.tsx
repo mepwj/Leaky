@@ -9,6 +9,7 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
 import {
   Text,
@@ -20,6 +21,7 @@ import {
   IconButton,
   ActivityIndicator,
   Divider,
+  SegmentedButtons,
 } from 'react-native-paper';
 import {useFocusEffect} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -58,7 +60,9 @@ interface CardDialogState {
   editId: number | null;
   cardCompany: string;
   alias: string;
+  cardType: 'credit' | 'check';
   paymentDay: string;
+  linkedAccountId: number | null;
 }
 
 type DialogState = AccountDialogState | CardDialogState;
@@ -80,7 +84,9 @@ const initialCardDialog: CardDialogState = {
   editId: null,
   cardCompany: '',
   alias: '',
+  cardType: 'credit',
   paymentDay: '',
+  linkedAccountId: null,
 };
 
 function AssetScreen(): React.JSX.Element {
@@ -164,7 +170,9 @@ function AssetScreen(): React.JSX.Element {
       editId: card.id,
       cardCompany: card.cardCompany,
       alias: card.alias || '',
+      cardType: (card.cardType as 'credit' | 'check') || 'credit',
       paymentDay: card.paymentDay ? String(card.paymentDay) : '',
+      linkedAccountId: card.linkedAccountId || null,
     });
   }, []);
 
@@ -234,20 +242,29 @@ function AssetScreen(): React.JSX.Element {
       }
     }
 
+    if (d.cardType === 'check' && !d.linkedAccountId) {
+      Alert.alert('알림', '체크카드는 연결할 계좌를 선택해주세요.');
+      return;
+    }
+
     setSaving(true);
     try {
       if (d.mode === 'add') {
         const data: CreateCardData = {
           cardCompany: d.cardCompany.trim(),
           alias: d.alias.trim() || undefined,
-          paymentDay: d.paymentDay ? Number(d.paymentDay) : undefined,
+          cardType: d.cardType,
+          paymentDay: d.cardType === 'credit' && d.paymentDay ? Number(d.paymentDay) : undefined,
+          linkedAccountId: d.cardType === 'check' ? d.linkedAccountId ?? undefined : undefined,
         };
         await api.createCard(data);
       } else if (d.editId !== null) {
         const data: UpdateCardData = {
           cardCompany: d.cardCompany.trim(),
           alias: d.alias.trim() || null,
-          paymentDay: d.paymentDay ? Number(d.paymentDay) : null,
+          cardType: d.cardType,
+          paymentDay: d.cardType === 'credit' && d.paymentDay ? Number(d.paymentDay) : null,
+          linkedAccountId: d.cardType === 'check' ? d.linkedAccountId : null,
         };
         await api.updateCard(d.editId, data);
       }
@@ -404,19 +421,81 @@ function AssetScreen(): React.JSX.Element {
             outlineColor={theme.colors.outline + '40'}
             activeOutlineColor={theme.colors.primary}
           />
-          <TextInput
-            label="결제일 (1~31, 선택)"
-            value={d.paymentDay}
-            onChangeText={text => {
-              const numericOnly = text.replace(/[^0-9]/g, '');
-              setDialog(prev => ({...prev, paymentDay: numericOnly} as CardDialogState));
-            }}
-            keyboardType="numeric"
-            mode="outlined"
-            style={styles.dialogInput}
-            outlineColor={theme.colors.outline + '40'}
-            activeOutlineColor={theme.colors.primary}
+          {/* 카드 타입 선택 */}
+          <Text variant="bodyMedium" style={{color: theme.colors.onSurface, marginBottom: 8, fontWeight: '500'}}>
+            카드 종류
+          </Text>
+          <SegmentedButtons
+            value={d.cardType}
+            onValueChange={value =>
+              setDialog(prev => ({
+                ...prev,
+                cardType: value as 'credit' | 'check',
+                linkedAccountId: value === 'credit' ? null : (prev as CardDialogState).linkedAccountId,
+              } as CardDialogState))
+            }
+            buttons={[
+              {value: 'credit', label: '신용카드'},
+              {value: 'check', label: '체크카드'},
+            ]}
+            style={{marginBottom: 12}}
           />
+          {/* 신용카드: 결제일 입력 */}
+          {d.cardType === 'credit' && (
+            <TextInput
+              label="결제일 (1~31, 선택)"
+              value={d.paymentDay}
+              onChangeText={text => {
+                const numericOnly = text.replace(/[^0-9]/g, '');
+                setDialog(prev => ({...prev, paymentDay: numericOnly} as CardDialogState));
+              }}
+              keyboardType="numeric"
+              mode="outlined"
+              style={styles.dialogInput}
+              outlineColor={theme.colors.outline + '40'}
+              activeOutlineColor={theme.colors.primary}
+            />
+          )}
+          {/* 체크카드: 연결 계좌 선택 */}
+          {d.cardType === 'check' && (
+            <View style={{marginBottom: 12}}>
+              <Text variant="bodyMedium" style={{color: theme.colors.onSurface, marginBottom: 8, fontWeight: '500'}}>
+                연결 계좌 (필수)
+              </Text>
+              {accounts.length === 0 ? (
+                <Text variant="bodySmall" style={{color: theme.colors.outline}}>
+                  등록된 계좌가 없습니다. 먼저 계좌를 추가해주세요.
+                </Text>
+              ) : (
+                <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8}}>
+                  {accounts.map(acc => (
+                    <TouchableOpacity
+                      key={acc.id}
+                      style={{
+                        paddingVertical: 8,
+                        paddingHorizontal: 16,
+                        borderRadius: 20,
+                        borderWidth: 2,
+                        borderColor: d.linkedAccountId === acc.id ? theme.colors.primary : theme.colors.outline + '20',
+                        backgroundColor: d.linkedAccountId === acc.id ? theme.colors.primaryContainer : 'transparent',
+                      }}
+                      onPress={() =>
+                        setDialog(prev => ({...prev, linkedAccountId: acc.id} as CardDialogState))
+                      }>
+                      <Text
+                        variant="bodyMedium"
+                        style={{
+                          color: d.linkedAccountId === acc.id ? theme.colors.primary : theme.colors.onSurface,
+                          fontWeight: d.linkedAccountId === acc.id ? '600' : '400',
+                        }}>
+                        {acc.alias || acc.bankName}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
         </>
       );
     }
@@ -564,11 +643,10 @@ function AssetScreen(): React.JSX.Element {
                 <List.Item
                   title={card.alias || card.cardCompany}
                   description={
-                    (card.alias ? card.cardCompany : '') +
-                    (card.paymentDay
-                      ? (card.alias ? ' · ' : '') +
-                        `결제일 ${card.paymentDay}일`
-                      : '')
+                    (card.cardType === 'check' ? '체크카드' : '신용카드') +
+                    (card.alias ? ` · ${card.cardCompany}` : '') +
+                    (card.paymentDay ? ` · 결제일 ${card.paymentDay}일` : '') +
+                    (card.cardType === 'check' && card.linkedAccount ? ` · ${card.linkedAccount.alias || card.linkedAccount.bankName}` : '')
                   }
                   left={props => (
                     <List.Icon {...props} icon="credit-card" />

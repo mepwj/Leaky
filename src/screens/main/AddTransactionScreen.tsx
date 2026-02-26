@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
   Pressable,
+  Keyboard,
 } from 'react-native';
 import {
   Text,
@@ -63,6 +64,7 @@ function AddTransactionScreen(): React.JSX.Element {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   const typeColor = type === 'income' ? '#2196F3' : theme.colors.error;
 
@@ -118,6 +120,21 @@ function AddTransactionScreen(): React.JSX.Element {
       }
     }
   }, [editTransaction]);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true),
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false),
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // 수정 모드: 카테고리 로드 후 기존 카테고리 선택
   useEffect(() => {
@@ -328,7 +345,7 @@ function AddTransactionScreen(): React.JSX.Element {
         <ScrollView
           ref={scrollViewRef}
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, keyboardVisible && {paddingBottom: 300}]}
           keyboardShouldPersistTaps="handled">
           {/* 수입/지출 토글 */}
           <View style={styles.section}>

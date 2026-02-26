@@ -35,18 +35,22 @@ model Account {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   transactions Transaction[]
+  linkedCards  Card[]        @relation("CardLinkedAccount")
 }
 
 model Card {
-  id           Int           @id @default(autoincrement())
-  userId       Int
-  user         User          @relation(fields: [userId], references: [id])
-  cardCompany  String
-  alias        String?
-  paymentDay   Int?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  transactions Transaction[]
+  id              Int           @id @default(autoincrement())
+  userId          Int
+  user            User          @relation(fields: [userId], references: [id])
+  cardCompany     String
+  alias           String?
+  cardType        String        @default("credit")
+  paymentDay      Int?
+  linkedAccountId Int?
+  linkedAccount   Account?      @relation("CardLinkedAccount", fields: [linkedAccountId], references: [id], onDelete: SetNull)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  transactions    Transaction[]
 }
 
 model Category {
