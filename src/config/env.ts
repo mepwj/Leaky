@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 const DEFAULT_API_BASE_URL = 'http://mepwj.iptime.org:3000';
 const DEFAULT_GOOGLE_WEB_CLIENT_ID =
   '230616603857-r0lv9i8fjbtt04if1pcv875e7plj8aoa.apps.googleusercontent.com';
+const DEFAULT_ANDROID_APK_URL = 'https://leaky-coral.vercel.app/apk/leaky-latest.apk';
 
 function getEnv(key: string): string | undefined {
   if (Platform.OS === 'web') {
@@ -20,3 +21,6 @@ export const API_BASE_URL =
 
 export const GOOGLE_WEB_CLIENT_ID =
   getEnv('GOOGLE_WEB_CLIENT_ID')?.trim() || DEFAULT_GOOGLE_WEB_CLIENT_ID;
+
+export const ANDROID_APK_URL =
+  getEnv('ANDROID_APK_URL')?.trim() || DEFAULT_ANDROID_APK_URL;

@@ -8,6 +8,7 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from 'react-native';
 import {
   Text,
@@ -26,6 +27,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {GoogleSignin} from '@react-native-google-signin/google-signin';
 import {useAuth} from '../../context/AuthContext';
 import {api, Category} from '../../services/api';
+import {ANDROID_APK_URL} from '../../config/env';
 
 // ─── 아이콘 피커에 표시할 이모지 목록 ──────────────────────────────
 const ICON_OPTIONS = [
@@ -269,6 +271,14 @@ function SettingsScreen(): React.JSX.Element {
     ]);
   }, [signOut]);
 
+  const handleDownloadApp = useCallback(async () => {
+    try {
+      await Linking.openURL(ANDROID_APK_URL);
+    } catch {
+      Alert.alert('오류', '다운로드 링크를 열지 못했습니다.');
+    }
+  }, []);
+
   // ─── 아바타 첫 글자 추출 ─────────────────────────────────────
   const avatarLetter = (nickname || userNickname || email || '?')
     .charAt(0)
@@ -446,6 +456,14 @@ function SettingsScreen(): React.JSX.Element {
             title="버전 정보"
             description="1.0.0"
             left={props => <List.Icon {...props} icon="information-outline" />}
+            style={styles.listItem}
+          />
+          <Divider />
+          <List.Item
+            title="앱 다운로드"
+            description="최신 Android APK"
+            left={props => <List.Icon {...props} icon="download-outline" />}
+            onPress={handleDownloadApp}
             style={styles.listItem}
           />
         </Surface>
