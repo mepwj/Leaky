@@ -10,12 +10,10 @@ import type {
   TransactionsResponse,
 } from './types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || '';
-
-if (typeof window !== 'undefined' && !API_BASE_URL) {
-  // eslint-disable-next-line no-console
-  console.warn('NEXT_PUBLIC_API_BASE_URL is not configured.');
-}
+const API_BASE_URL =
+  typeof window === 'undefined'
+    ? (process.env.API_BACKEND_URL?.trim() || 'http://mepwj.iptime.org:3000')
+    : '';
 
 const TOKEN_KEY = 'jwt_token';
 
@@ -57,7 +55,8 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const url = API_BASE_URL ? `${API_BASE_URL}${path}` : `/api${path}`;
+  const response = await fetch(url, {
     ...options,
     headers,
   });
