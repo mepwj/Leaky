@@ -4,6 +4,20 @@ import { authMiddleware, JwtPayload } from '../middleware/auth';
 
 const router = Router();
 
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+function toKstDateKey(date: Date): string {
+  const kstDate = new Date(date.getTime() + KST_OFFSET_MS);
+  const year = kstDate.getUTCFullYear();
+  const month = String(kstDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(kstDate.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function isOnOrAfterKstDate(targetDate: Date, baseDate: Date): boolean {
+  return toKstDateKey(targetDate) >= toKstDateKey(baseDate);
+}
+
 // GET /transactions?month=YYYY-MM
 // 지정된 월의 모든 거래내역을 카테고리 포함하여 반환.
 router.get('/', authMiddleware, async (req: Request, res: Response): Promise<void> => {
@@ -178,7 +192,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response): Promise<vo
           where: { id: data.accountId },
           select: { balanceSyncDate: true },
         });
-        if (account && txDate.getTime() >= account.balanceSyncDate.getTime()) {
+        if (account && isOnOrAfterKstDate(txDate, account.balanceSyncDate)) {
           const balanceChange = data.type === 'expense' ? -Number(data.amount) : Number(data.amount);
           await txClient.account.update({
             where: { id: data.accountId },
@@ -193,7 +207,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response): Promise<vo
           where: { id: userId },
           select: { cashSyncDate: true },
         });
-        if (user && txDate.getTime() >= user.cashSyncDate.getTime()) {
+        if (user && isOnOrAfterKstDate(txDate, user.cashSyncDate)) {
           const cashChange = data.type === 'expense' ? -Number(data.amount) : Number(data.amount);
           await txClient.user.update({
             where: { id: userId },
@@ -313,7 +327,7 @@ router.patch('/:id', authMiddleware, async (req: Request<{ id: string }>, res: R
           where: { id: transaction.accountId },
           select: { balanceSyncDate: true },
         });
-        if (account && oldTxDate.getTime() >= account.balanceSyncDate.getTime()) {
+        if (account && isOnOrAfterKstDate(oldTxDate, account.balanceSyncDate)) {
           const oldReverse = transaction.type === 'expense'
             ? Number(transaction.amount)
             : -Number(transaction.amount);
@@ -330,7 +344,7 @@ router.patch('/:id', authMiddleware, async (req: Request<{ id: string }>, res: R
           where: { id: userId },
           select: { cashSyncDate: true },
         });
-        if (user && oldTxDate.getTime() >= user.cashSyncDate.getTime()) {
+        if (user && isOnOrAfterKstDate(oldTxDate, user.cashSyncDate)) {
           const oldCashReverse = transaction.type === 'expense'
             ? Number(transaction.amount)
             : -Number(transaction.amount);
@@ -355,7 +369,7 @@ router.patch('/:id', authMiddleware, async (req: Request<{ id: string }>, res: R
           where: { id: newAccountId },
           select: { balanceSyncDate: true },
         });
-        if (account && newTxDate.getTime() >= account.balanceSyncDate.getTime()) {
+        if (account && isOnOrAfterKstDate(newTxDate, account.balanceSyncDate)) {
           const newType = data.type || transaction.type;
           const newAmount = data.amount || Number(transaction.amount);
           const newChange = newType === 'expense' ? -newAmount : newAmount;
@@ -373,7 +387,7 @@ router.patch('/:id', authMiddleware, async (req: Request<{ id: string }>, res: R
           where: { id: userId },
           select: { cashSyncDate: true },
         });
-        if (user && newTxDate.getTime() >= user.cashSyncDate.getTime()) {
+        if (user && isOnOrAfterKstDate(newTxDate, user.cashSyncDate)) {
           const newType = data.type || transaction.type;
           const newAmount = data.amount || Number(transaction.amount);
           const newCashChange = newType === 'expense' ? -newAmount : newAmount;
@@ -430,7 +444,7 @@ router.delete('/:id', authMiddleware, async (req: Request<{ id: string }>, res: 
           where: { id: transaction.accountId },
           select: { balanceSyncDate: true },
         });
-        if (account && deleteTxDate.getTime() >= account.balanceSyncDate.getTime()) {
+        if (account && isOnOrAfterKstDate(deleteTxDate, account.balanceSyncDate)) {
           const reverseChange = transaction.type === 'expense'
             ? Number(transaction.amount)
             : -Number(transaction.amount);
@@ -447,7 +461,7 @@ router.delete('/:id', authMiddleware, async (req: Request<{ id: string }>, res: 
           where: { id: userId },
           select: { cashSyncDate: true },
         });
-        if (user && deleteTxDate.getTime() >= user.cashSyncDate.getTime()) {
+        if (user && isOnOrAfterKstDate(deleteTxDate, user.cashSyncDate)) {
           const cashReverseChange = transaction.type === 'expense'
             ? Number(transaction.amount)
             : -Number(transaction.amount);
