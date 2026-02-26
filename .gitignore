@@ -16,6 +16,8 @@ local.properties
 # Node
 node_modules/
 npm-debug.log
+web/.next/
+web/out/
 
 # Metro
 .metro-health-check*
