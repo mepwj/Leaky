@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/apk/:path*",
-      "destination": "http://mepwj.iptime.org:3000/downloads/:path*"
+      "destination": "http://mepwj.iptime.org:3000/downloads/apk/:path*"
     },
     {
       "source": "/api/:path*",
