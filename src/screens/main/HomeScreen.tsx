@@ -537,6 +537,12 @@ function HomeScreen(): React.JSX.Element {
                       <Text
                         variant="bodyMedium"
                         style={{color: theme.colors.onSurface, fontWeight: '500'}}>
+                        {tx.title || tx.category?.name || '제목 없음'}
+                      </Text>
+                      <Text
+                        variant="bodySmall"
+                        style={{color: theme.colors.outline}}
+                        numberOfLines={1}>
                         {tx.category?.name || '미분류'}
                       </Text>
                       {tx.memo ? (
@@ -544,7 +550,7 @@ function HomeScreen(): React.JSX.Element {
                           variant="bodySmall"
                           style={{color: theme.colors.outline}}
                           numberOfLines={1}>
-                          {tx.memo}
+                          {'메모: ' + tx.memo}
                         </Text>
                       ) : null}
                     </View>

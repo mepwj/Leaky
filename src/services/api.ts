@@ -188,6 +188,7 @@ export interface Transaction {
   id: number;
   userId: number;
   type: 'income' | 'expense';
+  title: string | null;
   amount: string; // Prisma에서 Decimal 타입은 문자열로 반환됨
   categoryId: number | null;
   category: TransactionCategory | null;
@@ -214,6 +215,7 @@ export interface TransactionSummaryResponse {
 
 export interface CreateTransactionData {
   type: 'income' | 'expense';
+  title?: string;
   amount: number;
   categoryId?: number;
   paymentMethod: 'cash' | 'account' | 'card';
@@ -391,6 +393,7 @@ export interface DeleteCategoryResponse {
 
 export interface UpdateTransactionData {
   type?: 'income' | 'expense';
+  title?: string;
   amount?: number;
   categoryId?: number;
   paymentMethod?: 'cash' | 'account' | 'card';

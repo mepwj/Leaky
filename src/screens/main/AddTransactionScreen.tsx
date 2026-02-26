@@ -46,6 +46,7 @@ function AddTransactionScreen(): React.JSX.Element {
 
   // 폼 상태
   const [type, setType] = useState<TransactionType>('expense');
+  const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -107,6 +108,7 @@ function AddTransactionScreen(): React.JSX.Element {
   useEffect(() => {
     if (editTransaction) {
       setType(editTransaction.type as TransactionType);
+      setTitle(editTransaction.title || '');
       setAmount(String(Math.round(Number(editTransaction.amount))));
       const txDate = editTransaction.date.split('T')[0];
       const [y, m, d] = txDate.split('-').map(Number);
@@ -188,6 +190,11 @@ function AddTransactionScreen(): React.JSX.Element {
   };
 
   const handleSave = async () => {
+    if (!title.trim()) {
+      Alert.alert('알림', '제목을 입력해주세요.');
+      return;
+    }
+
     if (!amount || Number(amount) === 0) {
       Alert.alert('알림', '금액을 입력해주세요.');
       return;
@@ -225,6 +232,7 @@ function AddTransactionScreen(): React.JSX.Element {
       if (editTransaction) {
         await api.updateTransaction(editTransaction.id, {
           type,
+          title: title.trim(),
           amount: Number(amount),
           categoryId: selectedCategory!.id,
           paymentMethod,
@@ -235,6 +243,7 @@ function AddTransactionScreen(): React.JSX.Element {
       } else {
         const data: CreateTransactionData = {
           type,
+          title: title.trim(),
           amount: Number(amount),
           categoryId: selectedCategory.id,
           paymentMethod,
@@ -425,6 +434,30 @@ function AddTransactionScreen(): React.JSX.Element {
                 contentStyle={[styles.amountInputContent, {color: typeColor}]}
               />
             </View>
+          </Surface>
+
+          {/* 제목 입력 */}
+          <Surface
+            style={[
+              styles.titleContainer,
+              {backgroundColor: theme.colors.surface},
+            ]}
+            elevation={0}>
+            <Text
+              variant="titleSmall"
+              style={{color: theme.colors.outline, marginBottom: 8}}>
+              제목
+            </Text>
+            <TextInput
+              value={title}
+              onChangeText={setTitle}
+              placeholder="예: 당근 마켓 거래"
+              placeholderTextColor={theme.colors.outline}
+              mode="outlined"
+              style={styles.titleInput}
+              outlineColor={theme.colors.outline + '40'}
+              activeOutlineColor={theme.colors.primary}
+            />
           </Surface>
 
           {/* 날짜 선택 */}
@@ -693,6 +726,14 @@ const styles = StyleSheet.create({
     marginTop: 12,
     padding: 16,
     borderRadius: 12,
+  },
+  titleContainer: {
+    marginTop: 12,
+    padding: 16,
+    borderRadius: 12,
+  },
+  titleInput: {
+    backgroundColor: 'transparent',
   },
   dateButton: {
     paddingVertical: 12,

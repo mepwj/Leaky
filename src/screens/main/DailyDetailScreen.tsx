@@ -188,6 +188,12 @@ function DailyDetailScreen({navigation, route}: Props): React.JSX.Element {
                       <Text
                         variant="bodyMedium"
                         style={{color: theme.colors.onSurface, fontWeight: '500'}}>
+                        {tx.title || tx.category?.name || '제목 없음'}
+                      </Text>
+                      <Text
+                        variant="bodySmall"
+                        style={{color: theme.colors.outline}}
+                        numberOfLines={1}>
                         {tx.category?.name || '미분류'}
                       </Text>
                       {tx.memo ? (
@@ -195,7 +201,7 @@ function DailyDetailScreen({navigation, route}: Props): React.JSX.Element {
                           variant="bodySmall"
                           style={{color: theme.colors.outline}}
                           numberOfLines={1}>
-                          {tx.memo}
+                          {'메모: ' + tx.memo}
                         </Text>
                       ) : null}
                       <Text variant="labelSmall" style={{color: theme.colors.outline, marginTop: 2}}>

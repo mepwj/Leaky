@@ -104,7 +104,7 @@ router.get('/summary', authMiddleware, async (req: Request, res: Response): Prom
 router.post('/', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId } = req.user as JwtPayload;
-    const { type, amount, categoryId, paymentMethod, paymentSourceId, memo, date } = req.body;
+    const { type, title, amount, categoryId, paymentMethod, paymentSourceId, memo, date } = req.body;
 
     // 타입 검증
     if (!type || !['income', 'expense'].includes(type)) {
@@ -134,6 +134,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response): Promise<vo
     const data: {
       userId: number;
       type: string;
+      title?: string;
       amount: number;
       paymentMethod: string;
       date: Date;
@@ -151,6 +152,13 @@ router.post('/', authMiddleware, async (req: Request, res: Response): Promise<vo
 
     if (categoryId) {
       data.categoryId = Number(categoryId);
+    }
+
+    if (typeof title === 'string') {
+      const trimmedTitle = title.trim();
+      if (trimmedTitle) {
+        data.title = trimmedTitle;
+      }
     }
 
     if (memo) {
@@ -203,7 +211,7 @@ router.patch('/:id', authMiddleware, async (req: Request<{ id: string }>, res: R
       return;
     }
 
-    const { type, amount, categoryId, paymentMethod, paymentSourceId, memo, date } = req.body;
+    const { type, title, amount, categoryId, paymentMethod, paymentSourceId, memo, date } = req.body;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: any = {};
@@ -224,6 +232,16 @@ router.patch('/:id', authMiddleware, async (req: Request<{ id: string }>, res: R
         return;
       }
       data.amount = Number(amount);
+    }
+
+    // 제목 설정
+    if (title !== undefined) {
+      if (title === null) {
+        data.title = null;
+      } else {
+        const trimmedTitle = String(title).trim();
+        data.title = trimmedTitle || null;
+      }
     }
 
     // 카테고리 설정

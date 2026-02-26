@@ -74,6 +74,7 @@ model Transaction {
   userId        Int
   user          User      @relation(fields: [userId], references: [id])
   type          String
+  title         String?
   amount        Decimal   @db.Decimal(15, 2)
   categoryId    Int?
   category      Category? @relation(fields: [categoryId], references: [id])

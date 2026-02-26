@@ -23,12 +23,14 @@ import {
 } from 'react-native-paper';
 import {useFocusEffect} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {PieChart, BarChart, LineChart} from 'react-native-gifted-charts';
+import {PieChart, BarChart} from 'react-native-gifted-charts';
 import {
   api,
   Transaction,
   TransactionSummary,
   Budget,
+  Account,
+  Card,
 } from '../../services/api';
 
 // ─── 카테고리별 파이차트 색상 팔레트 ──────────────────────────────
@@ -57,11 +59,6 @@ function getMonthString(date: Date): string {
 /** Date -> "2026년 2월" 형식 라벨 */
 function getMonthLabel(date: Date): string {
   return `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
-}
-
-/** 해당 월의 총 일수 반환 */
-function getDaysInMonth(date: Date): number {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
 }
 
 function toDateKey(date: Date): string {
@@ -140,6 +137,15 @@ interface CategoryExpenseStat {
   color: string;
 }
 
+interface PaymentUsageStat {
+  key: string;
+  label: string;
+  total: number;
+  count: number;
+  percentage: number;
+  color: string;
+}
+
 // ─── 예산 진행률 색상 결정 ─────────────────────────────────────────
 function getBudgetColor(percentage: number): string {
   if (percentage > 90) return '#F44336';    // 빨강 (위험)
@@ -164,6 +170,8 @@ function StatsScreen(): React.JSX.Element {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [summary, setSummary] = useState<TransactionSummary>({});
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [cards, setCards] = useState<Card[]>([]);
 
   // 전월 데이터 (비교용)
   const [prevSummary, setPrevSummary] = useState<TransactionSummary>({});
@@ -214,16 +222,20 @@ function StatsScreen(): React.JSX.Element {
   const fetchData = useCallback(async (month: string, prevMonth: string) => {
     try {
       setLoading(true);
-      const [transRes, summaryRes, budgetRes, prevSummaryRes] = await Promise.all([
+      const [transRes, summaryRes, budgetRes, prevSummaryRes, accountRes, cardRes] = await Promise.all([
         api.getTransactions(month),
         api.getTransactionSummary(month),
         api.getBudgets(month),
         api.getTransactionSummary(prevMonth),
+        api.getAccounts(),
+        api.getCards(),
       ]);
       setTransactions(transRes.transactions);
       setSummary(summaryRes.summary);
       setBudgets(budgetRes.budgets);
       setPrevSummary(prevSummaryRes.summary);
+      setAccounts(accountRes.accounts);
+      setCards(cardRes.cards);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '데이터를 불러오는데 실패했습니다.';
       Alert.alert('오류', message);
@@ -417,6 +429,7 @@ function StatsScreen(): React.JSX.Element {
   const activeTotals = period === 'month' ? monthlyTotals : weeklyTotals;
   const activeCategoryExpenseStats =
     period === 'month' ? categoryExpenseStats : weeklyCategoryExpenseStats;
+  const activeTransactions = period === 'month' ? transactions : weeklyTransactions;
 
   // ─── 파이차트 데이터 ───────────────────────────────────────────
   const pieData = useMemo(() => {
@@ -446,50 +459,78 @@ function StatsScreen(): React.JSX.Element {
     }));
   }, [activeCategoryExpenseStats]);
 
-  // ─── 일별 지출 트렌드 라인차트 데이터 ──────────────────────────
-  const lineData = useMemo(() => {
-    if (period === 'week') {
-      if (!weekRange) {
-        return [];
+  const paymentMethodStats = useMemo((): PaymentUsageStat[] => {
+    const expenseTransactions = activeTransactions.filter(tx => tx.type === 'expense');
+    const totalExpense = expenseTransactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
+
+    const usageMap = new Map<string, {label: string; total: number; count: number; color: string}>([
+      ['cash', {label: '현금', total: 0, count: 0, color: '#4CAF50'}],
+      ['account', {label: '계좌', total: 0, count: 0, color: '#2196F3'}],
+      ['card', {label: '카드', total: 0, count: 0, color: '#FF9800'}],
+    ]);
+
+    for (const tx of expenseTransactions) {
+      const amount = Number(tx.amount);
+      const stat = usageMap.get(tx.paymentMethod);
+      if (stat) {
+        stat.total += amount;
+        stat.count += 1;
       }
-
-      const weekData: {value: number; label: string}[] = [];
-      const start = new Date(weekRange.start);
-      const end = new Date(weekRange.end);
-      const cursor = new Date(start);
-
-      while (cursor <= end) {
-        const dateKey = toDateKey(cursor);
-        const dayData = summary[dateKey];
-        weekData.push({
-          value: dayData?.expense ?? 0,
-          label: String(cursor.getDate()),
-        });
-        cursor.setDate(cursor.getDate() + 1);
-      }
-
-      return weekData;
     }
 
-    const daysInMonth = getDaysInMonth(currentMonth);
-    const data: {value: number; label: string}[] = [];
+    return Array.from(usageMap.entries())
+      .map(([key, value]) => ({
+        key,
+        label: value.label,
+        total: value.total,
+        count: value.count,
+        percentage: totalExpense > 0 ? Math.round((value.total / totalExpense) * 100) : 0,
+        color: value.color,
+      }))
+      .filter(item => item.total > 0)
+      .sort((a, b) => b.total - a.total);
+  }, [activeTransactions]);
 
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateKey = `${monthString}-${String(day).padStart(2, '0')}`;
-      const dayData = summary[dateKey];
-      const expense = dayData?.expense ?? 0;
+  const paymentSourceStats = useMemo((): PaymentUsageStat[] => {
+    const accountNameMap = new Map(accounts.map(acc => [acc.id, acc.alias || acc.bankName]));
+    const cardNameMap = new Map(cards.map(card => [card.id, card.alias || card.cardCompany]));
 
-      // 레이블은 주요 날짜에만 표시 (1, 5, 10, 15, 20, 25, 마지막 날)
-      const showLabel = day === 1 || day === 5 || day === 10 ||
-        day === 15 || day === 20 || day === 25 || day === daysInMonth;
+    const expenseTransactions = activeTransactions.filter(tx => tx.type === 'expense');
+    const totalExpense = expenseTransactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
+    const usageMap = new Map<string, Omit<PaymentUsageStat, 'percentage'>>();
 
-      data.push({
-        value: expense,
-        label: showLabel ? String(day) : '',
-      });
+    for (const tx of expenseTransactions) {
+      const amount = Number(tx.amount);
+      let key = 'cash';
+      let label = '현금';
+      let color = '#4CAF50';
+
+      if (tx.paymentMethod === 'account') {
+        key = `account:${tx.accountId ?? 'unknown'}`;
+        label = tx.accountId ? accountNameMap.get(tx.accountId) || '계좌(삭제됨)' : '계좌(미지정)';
+        color = '#2196F3';
+      } else if (tx.paymentMethod === 'card') {
+        key = `card:${tx.cardId ?? 'unknown'}`;
+        label = tx.cardId ? cardNameMap.get(tx.cardId) || '카드(삭제됨)' : '카드(미지정)';
+        color = '#FF9800';
+      }
+
+      const existing = usageMap.get(key);
+      if (existing) {
+        existing.total += amount;
+        existing.count += 1;
+      } else {
+        usageMap.set(key, {key, label, total: amount, count: 1, color});
+      }
     }
-    return data;
-  }, [summary, currentMonth, monthString, period, weekRange]);
+
+    return Array.from(usageMap.values())
+      .map(item => ({
+        ...item,
+        percentage: totalExpense > 0 ? Math.round((item.total / totalExpense) * 100) : 0,
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [activeTransactions, accounts, cards]);
 
   // ─── 전체 예산 (categoryId가 null인 예산) ─────────────────────
   const overallBudget = useMemo(() => {
@@ -833,52 +874,61 @@ function StatsScreen(): React.JSX.Element {
           </Surface>
         )}
 
-        {/* ─── 5. 일별 지출 트렌드 라인차트 ─────────────────────── */}
+        {/* ─── 5. 결제수단/사용처 통계 ──────────────────────────── */}
         <Surface style={styles.cardSurface} elevation={1}>
           <Text
             variant="titleSmall"
             style={[styles.sectionTitle, {color: theme.colors.onSurface}]}>
-            일별 지출 추이
+            결제수단별 사용 통계
           </Text>
 
-          {activeTotals.expense === 0 ? (
+          {paymentMethodStats.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text variant="bodyMedium" style={{color: theme.colors.outline, fontFamily: 'NanumGothic-Regular'}}>
                 지출 내역이 없습니다.
               </Text>
             </View>
           ) : (
-            <View style={styles.chartContainer}>
-              <LineChart
-                data={lineData}
-                width={chartWidth}
-                height={180}
-                spacing={Math.max(8, (chartWidth - 40) / Math.max(lineData.length - 1, 1))}
-                color={theme.colors.error}
-                thickness={2}
-                dataPointsColor={theme.colors.error}
-                dataPointsRadius={3}
-                noOfSections={4}
-                yAxisThickness={0}
-                xAxisThickness={1}
-                xAxisColor={theme.colors.outline + '40'}
-                yAxisTextStyle={{
-                  color: theme.colors.outline,
-                  fontSize: 10,
-                  fontFamily: 'NanumGothic-Regular',
-                }}
-                xAxisLabelTextStyle={{
-                  color: theme.colors.outline,
-                  fontSize: 10,
-                  fontFamily: 'NanumGothic-Regular',
-                }}
-                hideRules
-                curved
-                isAnimated
-                adjustToWidth
-                initialSpacing={10}
-                endSpacing={10}
-              />
+            <View style={styles.paymentStatsContainer}>
+              {paymentMethodStats.map(item => (
+                <View key={item.key} style={styles.paymentStatItem}>
+                  <View style={styles.paymentStatHeader}>
+                    <Text variant="bodyMedium" style={{color: theme.colors.onSurface, fontFamily: 'NanumGothic-Bold'}}>
+                      {item.label}
+                    </Text>
+                    <Text variant="bodySmall" style={{color: theme.colors.outline, fontFamily: 'NanumGothic-Regular'}}>
+                      {formatAmount(item.total)} · {item.count}건 ({item.percentage}%)
+                    </Text>
+                  </View>
+                  <View style={[styles.paymentBarTrack, {backgroundColor: theme.colors.outline + '20'}]}>
+                    <View
+                      style={[
+                        styles.paymentBarFill,
+                        {width: `${Math.min(item.percentage, 100)}%`, backgroundColor: item.color},
+                      ]}
+                    />
+                  </View>
+                </View>
+              ))}
+
+              <View style={[styles.paymentSourceSection, {borderTopColor: theme.colors.outline + '20'}]}>
+                <Text variant="bodyMedium" style={{color: theme.colors.onSurface, fontFamily: 'NanumGothic-Bold', marginBottom: 8}}>
+                  사용처 상세
+                </Text>
+                {paymentSourceStats.map(item => (
+                  <View key={item.key} style={styles.paymentSourceRow}>
+                    <View style={styles.legendLeft}>
+                      <View style={[styles.legendDot, {backgroundColor: item.color}]} />
+                      <Text variant="bodyMedium" style={{color: theme.colors.onSurface, fontFamily: 'NanumGothic-Regular'}}>
+                        {item.label}
+                      </Text>
+                    </View>
+                    <Text variant="bodySmall" style={{color: theme.colors.outline, fontFamily: 'NanumGothic-Regular'}}>
+                      {formatAmount(item.total)} · {item.count}건 ({item.percentage}%)
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </View>
           )}
         </Surface>
@@ -1225,6 +1275,40 @@ const styles = StyleSheet.create({
   emptyContainer: {
     paddingVertical: 24,
     alignItems: 'center',
+  },
+
+  // 결제수단 통계
+  paymentStatsContainer: {
+    marginTop: 4,
+  },
+  paymentStatItem: {
+    marginBottom: 12,
+  },
+  paymentStatHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  paymentBarTrack: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  paymentBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  paymentSourceSection: {
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  paymentSourceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
   },
 
   // 예산 섹션
