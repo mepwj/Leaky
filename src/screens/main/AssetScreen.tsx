@@ -41,6 +41,32 @@ function formatAmount(amount: number): string {
   return amount.toLocaleString('ko-KR') + '원';
 }
 
+function formatKstDateTime(dateString: string): string {
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) {
+    return dateString;
+  }
+
+  const parts = new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+
+  const getPart = (type: string): string => parts.find(part => part.type === type)?.value || '';
+  const year = getPart('year');
+  const month = getPart('month');
+  const day = getPart('day');
+  const hour = getPart('hour');
+  const minute = getPart('minute');
+
+  return `${year}. ${month}. ${day}. ${hour}:${minute} KST`;
+}
+
 function getCurrentMonthString(): string {
   const now = new Date();
   const year = now.getFullYear();
@@ -391,6 +417,48 @@ function AssetScreen(): React.JSX.Element {
     [fetchData],
   );
 
+  const moveAccount = useCallback(async (index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= accounts.length) {
+      return;
+    }
+
+    const reordered = [...accounts];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(targetIndex, 0, moved);
+
+    setAccounts(reordered);
+
+    try {
+      await api.reorderAccounts(reordered.map(item => item.id));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '순서 변경에 실패했습니다.';
+      Alert.alert('오류', message);
+      await fetchData();
+    }
+  }, [accounts, fetchData]);
+
+  const moveCard = useCallback(async (index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= cards.length) {
+      return;
+    }
+
+    const reordered = [...cards];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(targetIndex, 0, moved);
+
+    setCards(reordered);
+
+    try {
+      await api.reorderCards(reordered.map(item => item.id));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '순서 변경에 실패했습니다.';
+      Alert.alert('오류', message);
+      await fetchData();
+    }
+  }, [cards, fetchData]);
+
   // ─── 현금 저장 핸들러 ────────────────────────────────────────
 
   const handleSaveCash = useCallback(async () => {
@@ -689,7 +757,7 @@ function AssetScreen(): React.JSX.Element {
                     </Text>
                     {cashSyncDate && (
                       <Text variant="bodySmall" style={{color: theme.colors.outline, marginLeft: 8}}>
-                        {'잔액 설정일 ' + new Date(cashSyncDate).toLocaleDateString('ko-KR')}
+                        {'잔액 설정일 ' + formatKstDateTime(cashSyncDate)}
                       </Text>
                     )}
                   </View>
@@ -738,7 +806,7 @@ function AssetScreen(): React.JSX.Element {
                   title={account.alias || account.bankName}
                   description={
                     (account.alias ? account.bankName + ' · ' : '') +
-                    '잔액 설정일 ' + new Date(account.balanceSyncDate).toLocaleDateString('ko-KR')
+                    '잔액 설정일 ' + formatKstDateTime(account.balanceSyncDate)
                   }
                   left={props => (
                     <List.Icon {...props} icon="bank" />
@@ -754,6 +822,18 @@ function AssetScreen(): React.JSX.Element {
                         }}>
                         {formatAmount(Number(account.balance))}
                       </Text>
+                      <IconButton
+                        icon="chevron-up"
+                        size={18}
+                        disabled={index === 0}
+                        onPress={() => moveAccount(index, -1)}
+                      />
+                      <IconButton
+                        icon="chevron-down"
+                        size={18}
+                        disabled={index === accounts.length - 1}
+                        onPress={() => moveAccount(index, 1)}
+                      />
                       <IconButton
                         icon="pencil-outline"
                         size={18}
@@ -814,6 +894,18 @@ function AssetScreen(): React.JSX.Element {
                   )}
                   right={() => (
                     <View style={styles.listRight}>
+                      <IconButton
+                        icon="chevron-up"
+                        size={18}
+                        disabled={index === 0}
+                        onPress={() => moveCard(index, -1)}
+                      />
+                      <IconButton
+                        icon="chevron-down"
+                        size={18}
+                        disabled={index === cards.length - 1}
+                        onPress={() => moveCard(index, 1)}
+                      />
                       <IconButton
                         icon="pencil-outline"
                         size={18}

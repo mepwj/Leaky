@@ -14,7 +14,10 @@ router.get('/accounts', authMiddleware, async (req: Request, res: Response): Pro
 
     const accounts = await prisma.account.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [
+        { sortOrder: 'asc' },
+        { createdAt: 'asc' },
+      ],
     });
 
     res.json({ accounts });
@@ -36,11 +39,17 @@ router.post('/accounts', authMiddleware, async (req: Request, res: Response): Pr
       return;
     }
 
+    const maxSort = await prisma.account.aggregate({
+      where: { userId },
+      _max: { sortOrder: true },
+    });
+
     const account = await prisma.account.create({
       data: {
         userId,
         bankName: bankName.trim(),
         alias: alias ? String(alias).trim() : null,
+        sortOrder: (maxSort._max.sortOrder ?? -1) + 1,
         balance: balance !== undefined && balance !== null ? Number(balance) : 0,
         balanceSyncDate: new Date(),
       },
@@ -150,6 +159,59 @@ router.delete('/accounts/:id', authMiddleware, async (req: Request<{ id: string 
   }
 });
 
+// PATCH /assets/accounts/reorder
+// 계좌 정렬 순서를 일괄 업데이트.
+router.patch('/accounts/reorder', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.user as JwtPayload;
+    const { orderedIds } = req.body;
+
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0 || !orderedIds.every((id) => Number.isInteger(id))) {
+      res.status(400).json({ error: 'orderedIds must be a non-empty array of integers.' });
+      return;
+    }
+
+    const uniqueIds = Array.from(new Set(orderedIds.map((id) => Number(id))));
+    if (uniqueIds.length !== orderedIds.length) {
+      res.status(400).json({ error: 'orderedIds must not contain duplicates.' });
+      return;
+    }
+
+    const ownedAccounts = await prisma.account.findMany({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (ownedAccounts.length !== uniqueIds.length) {
+      res.status(400).json({ error: 'orderedIds must include all account IDs.' });
+      return;
+    }
+
+    const ownedIdSet = new Set(ownedAccounts.map((item) => item.id));
+    if (!uniqueIds.every((id) => ownedIdSet.has(id))) {
+      res.status(400).json({ error: 'orderedIds contains invalid account ID.' });
+      return;
+    }
+
+    await prisma.$transaction(
+      uniqueIds.map((id, index) => prisma.account.update({
+        where: { id },
+        data: { sortOrder: index },
+      })),
+    );
+
+    const accounts = await prisma.account.findMany({
+      where: { userId },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    res.json({ accounts });
+  } catch (error) {
+    console.error('Reorder accounts error:', error);
+    res.status(500).json({ error: 'Failed to reorder accounts.' });
+  }
+});
+
 // ─── 카드 엔드포인트 ───────────────────────────────────────────
 
 // GET /assets/cards
@@ -161,7 +223,10 @@ router.get('/cards', authMiddleware, async (req: Request, res: Response): Promis
     const cards = await prisma.card.findMany({
       where: { userId },
       include: { linkedAccount: true },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [
+        { sortOrder: 'asc' },
+        { createdAt: 'asc' },
+      ],
     });
 
     res.json({ cards });
@@ -212,11 +277,17 @@ router.post('/cards', authMiddleware, async (req: Request, res: Response): Promi
       }
     }
 
+    const maxSort = await prisma.card.aggregate({
+      where: { userId },
+      _max: { sortOrder: true },
+    });
+
     const card = await prisma.card.create({
       data: {
         userId,
         cardCompany: cardCompany.trim(),
         alias: alias ? String(alias).trim() : null,
+        sortOrder: (maxSort._max.sortOrder ?? -1) + 1,
         cardType: cardType || 'credit',
         paymentDay: paymentDay !== undefined && paymentDay !== null ? Number(paymentDay) : null,
         linkedAccountId: linkedAccountId ? Number(linkedAccountId) : null,
@@ -349,6 +420,60 @@ router.delete('/cards/:id', authMiddleware, async (req: Request<{ id: string }>,
   } catch (error) {
     console.error('Delete card error:', error);
     res.status(500).json({ error: 'Failed to delete card.' });
+  }
+});
+
+// PATCH /assets/cards/reorder
+// 카드 정렬 순서를 일괄 업데이트.
+router.patch('/cards/reorder', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.user as JwtPayload;
+    const { orderedIds } = req.body;
+
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0 || !orderedIds.every((id) => Number.isInteger(id))) {
+      res.status(400).json({ error: 'orderedIds must be a non-empty array of integers.' });
+      return;
+    }
+
+    const uniqueIds = Array.from(new Set(orderedIds.map((id) => Number(id))));
+    if (uniqueIds.length !== orderedIds.length) {
+      res.status(400).json({ error: 'orderedIds must not contain duplicates.' });
+      return;
+    }
+
+    const ownedCards = await prisma.card.findMany({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (ownedCards.length !== uniqueIds.length) {
+      res.status(400).json({ error: 'orderedIds must include all card IDs.' });
+      return;
+    }
+
+    const ownedIdSet = new Set(ownedCards.map((item) => item.id));
+    if (!uniqueIds.every((id) => ownedIdSet.has(id))) {
+      res.status(400).json({ error: 'orderedIds contains invalid card ID.' });
+      return;
+    }
+
+    await prisma.$transaction(
+      uniqueIds.map((id, index) => prisma.card.update({
+        where: { id },
+        data: { sortOrder: index },
+      })),
+    );
+
+    const cards = await prisma.card.findMany({
+      where: { userId },
+      include: { linkedAccount: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    res.json({ cards });
+  } catch (error) {
+    console.error('Reorder cards error:', error);
+    res.status(500).json({ error: 'Failed to reorder cards.' });
   }
 });
 

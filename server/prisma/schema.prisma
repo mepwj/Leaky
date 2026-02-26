@@ -33,6 +33,7 @@ model Account {
   user            User          @relation(fields: [userId], references: [id])
   bankName        String
   alias           String?
+  sortOrder       Int           @default(0)
   balance         Decimal       @default(0) @db.Decimal(15, 2)
   balanceSyncDate DateTime      @default(now())
   createdAt       DateTime      @default(now())
@@ -47,6 +48,7 @@ model Card {
   user            User          @relation(fields: [userId], references: [id])
   cardCompany     String
   alias           String?
+  sortOrder       Int           @default(0)
   cardType        String        @default("credit")
   paymentDay      Int?
   linkedAccountId Int?

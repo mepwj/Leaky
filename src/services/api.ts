@@ -239,6 +239,7 @@ export interface Account {
   userId: number;
   bankName: string;
   alias: string | null;
+  sortOrder: number;
   balance: string; // Prisma에서 Decimal 타입은 문자열로 반환됨
   balanceSyncDate: string;
   createdAt: string;
@@ -250,6 +251,7 @@ export interface Card {
   userId: number;
   cardCompany: string;
   alias: string | null;
+  sortOrder: number;
   cardType: string;
   paymentDay: number | null;
   linkedAccountId: number | null;
@@ -464,6 +466,10 @@ export const api = {
     return get<AccountsResponse>('/assets/accounts');
   },
 
+  reorderAccounts: async (orderedIds: number[]): Promise<AccountsResponse> => {
+    return patch<AccountsResponse>('/assets/accounts/reorder', {orderedIds});
+  },
+
   createAccount: async (data: CreateAccountData): Promise<AccountResponse> => {
     return post<AccountResponse>('/assets/accounts', data, true);
   },
@@ -479,6 +485,10 @@ export const api = {
   // 자산 API - 카드
   getCards: async (): Promise<CardsResponse> => {
     return get<CardsResponse>('/assets/cards');
+  },
+
+  reorderCards: async (orderedIds: number[]): Promise<CardsResponse> => {
+    return patch<CardsResponse>('/assets/cards/reorder', {orderedIds});
   },
 
   createCard: async (data: CreateCardData): Promise<CardResponse> => {
