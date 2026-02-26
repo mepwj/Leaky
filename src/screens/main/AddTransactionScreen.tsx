@@ -22,7 +22,7 @@ import {
 } from 'react-native-paper';
 import {Calendar, DateData} from 'react-native-calendars';
 import {useNavigation} from '@react-navigation/native';
-import {api, Category, CreateTransactionData} from '../../services/api';
+import {api, Account, Card, Category, CreateTransactionData} from '../../services/api';
 
 type TransactionType = 'expense' | 'income';
 type PaymentMethod = 'cash' | 'account' | 'card';
@@ -41,6 +41,11 @@ function AddTransactionScreen(): React.JSX.Element {
   );
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [memo, setMemo] = useState('');
+
+  // 결제수단 상세 선택 상태 (계좌/카드)
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [cards, setCards] = useState<Card[]>([]);
+  const [selectedPaymentSourceId, setSelectedPaymentSourceId] = useState<number | null>(null);
 
   // 데이터 상태
   const [categories, setCategories] = useState<Category[]>([]);
@@ -66,6 +71,23 @@ function AddTransactionScreen(): React.JSX.Element {
     fetchCategories(type);
     setSelectedCategory(null);
   }, [type, fetchCategories]);
+
+  // 계좌 및 카드 목록 최초 로드
+  useEffect(() => {
+    const fetchPaymentSources = async () => {
+      try {
+        const [accountsRes, cardsRes] = await Promise.all([
+          api.getAccounts(),
+          api.getCards(),
+        ]);
+        setAccounts(accountsRes.accounts);
+        setCards(cardsRes.cards);
+      } catch (error) {
+        console.error('Failed to fetch payment sources:', error);
+      }
+    };
+    fetchPaymentSources();
+  }, []);
 
   const formatDateToString = (d: Date): string => {
     const year = d.getFullYear();
@@ -96,6 +118,14 @@ function AddTransactionScreen(): React.JSX.Element {
     setAmount(numericOnly);
   };
 
+  // 결제수단 변경 시 선택된 소스 초기화 (현금은 소스 불필요)
+  const handlePaymentMethodChange = (value: string) => {
+    setPaymentMethod(value as PaymentMethod);
+    if (value === 'cash') {
+      setSelectedPaymentSourceId(null);
+    }
+  };
+
   const handleDateSelect = (dateData: DateData) => {
     const [year, month, day] = dateData.dateString.split('-').map(Number);
     setDate(new Date(year, month - 1, day));
@@ -120,6 +150,7 @@ function AddTransactionScreen(): React.JSX.Element {
         amount: Number(amount),
         categoryId: selectedCategory.id,
         paymentMethod,
+        paymentSourceId: selectedPaymentSourceId || undefined,
         memo: memo.trim() || undefined,
         date: formatDateToString(date),
       };
@@ -403,15 +434,62 @@ function AddTransactionScreen(): React.JSX.Element {
             </Text>
             <SegmentedButtons
               value={paymentMethod}
-              onValueChange={value =>
-                setPaymentMethod(value as PaymentMethod)
-              }
+              onValueChange={handlePaymentMethodChange}
               buttons={[
                 {value: 'cash', label: '현금'},
                 {value: 'account', label: '계좌'},
                 {value: 'card', label: '카드'},
               ]}
             />
+            {/* 결제수단 상세 - 계좌/카드 선택 */}
+            {paymentMethod === 'account' && accounts.length > 0 && (
+              <View style={styles.paymentSourceList}>
+                {accounts.map(acc => (
+                  <TouchableOpacity
+                    key={acc.id}
+                    style={[
+                      styles.paymentSourceItem,
+                      {
+                        backgroundColor: selectedPaymentSourceId === acc.id
+                          ? theme.colors.primaryContainer
+                          : theme.colors.surface,
+                        borderColor: selectedPaymentSourceId === acc.id
+                          ? theme.colors.primary
+                          : theme.colors.outline + '40',
+                      },
+                    ]}
+                    onPress={() => setSelectedPaymentSourceId(acc.id)}>
+                    <Text variant="bodyMedium" style={{color: theme.colors.onSurface}}>
+                      {acc.alias || acc.bankName}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            {paymentMethod === 'card' && cards.length > 0 && (
+              <View style={styles.paymentSourceList}>
+                {cards.map(card => (
+                  <TouchableOpacity
+                    key={card.id}
+                    style={[
+                      styles.paymentSourceItem,
+                      {
+                        backgroundColor: selectedPaymentSourceId === card.id
+                          ? theme.colors.primaryContainer
+                          : theme.colors.surface,
+                        borderColor: selectedPaymentSourceId === card.id
+                          ? theme.colors.primary
+                          : theme.colors.outline + '40',
+                      },
+                    ]}
+                    onPress={() => setSelectedPaymentSourceId(card.id)}>
+                    <Text variant="bodyMedium" style={{color: theme.colors.onSurface}}>
+                      {card.alias || card.cardCompany}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </Surface>
 
           {/* 메모 */}
@@ -567,6 +645,18 @@ const styles = StyleSheet.create({
     marginTop: 12,
     padding: 16,
     borderRadius: 12,
+  },
+  paymentSourceList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  paymentSourceItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
   },
   memoContainer: {
     marginTop: 12,

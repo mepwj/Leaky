@@ -13,6 +13,7 @@ import StatsScreen from '../screens/main/StatsScreen';
 import AssetScreen from '../screens/main/AssetScreen';
 import SettingsScreen from '../screens/main/SettingsScreen';
 import AddTransactionScreen from '../screens/main/AddTransactionScreen';
+import DailyDetailScreen from '../screens/main/DailyDetailScreen';
 
 export type MainTabParamList = {
   Home: undefined;
@@ -24,7 +25,8 @@ export type MainTabParamList = {
 
 export type MainStackParamList = {
   MainTabs: undefined;
-  AddTransaction: undefined;
+  AddTransaction: {date?: string} | undefined;
+  DailyDetail: {date: string};
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -112,15 +114,17 @@ function MainTabs(): React.JSX.Element {
           tabBarLabel: () => null,
           tabBarIcon: () => null,
           tabBarButton: () => (
-            <AddButton
-              onPress={() => {
-                const parent =
-                  navigation.getParent<
-                    NativeStackNavigationProp<MainStackParamList>
-                  >();
-                parent?.navigate('AddTransaction');
-              }}
-            />
+            <View style={styles.addButtonWrapper}>
+              <AddButton
+                onPress={() => {
+                  const parent =
+                    navigation.getParent<
+                      NativeStackNavigationProp<MainStackParamList>
+                    >();
+                  parent?.navigate('AddTransaction');
+                }}
+              />
+            </View>
           ),
         })}
         listeners={({navigation}) => ({
@@ -160,11 +164,17 @@ function MainNavigator(): React.JSX.Element {
           animation: 'slide_from_bottom',
         }}
       />
+      <Stack.Screen name="DailyDetail" component={DailyDetailScreen} />
     </Stack.Navigator>
   );
 }
 
 const styles = StyleSheet.create({
+  addButtonWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   addButton: {
     width: 52,
     height: 52,

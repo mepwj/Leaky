@@ -313,6 +313,96 @@ export interface HolidaysResponse {
   holidays: HolidayItem[];
 }
 
+// ─── 예산 타입 ──────────────────────────────────────────────────
+
+export interface Budget {
+  id: number;
+  userId: number;
+  categoryId: number | null;
+  category: Category | null;
+  amount: string; // Prisma Decimal
+  month: string; // YYYY-MM
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BudgetsResponse {
+  budgets: Budget[];
+}
+
+export interface CreateBudgetData {
+  categoryId?: number;
+  amount: number;
+  month: string; // YYYY-MM
+}
+
+export interface UpdateBudgetData {
+  amount: number;
+}
+
+export interface BudgetResponse {
+  budget: Budget;
+}
+
+export interface DeleteBudgetResponse {
+  message: string;
+}
+
+// ─── 카테고리 CRUD 타입 ──────────────────────────────────────────
+
+export interface CreateCategoryData {
+  type: 'income' | 'expense';
+  name: string;
+  icon?: string;
+}
+
+export interface UpdateCategoryData {
+  name?: string;
+  icon?: string;
+  sortOrder?: number;
+}
+
+export interface CategoryResponse {
+  category: Category;
+}
+
+export interface DeleteCategoryResponse {
+  message: string;
+}
+
+// ─── 거래 수정 타입 ──────────────────────────────────────────────
+
+export interface UpdateTransactionData {
+  type?: 'income' | 'expense';
+  amount?: number;
+  categoryId?: number;
+  paymentMethod?: 'cash' | 'account' | 'card';
+  paymentSourceId?: number | null;
+  memo?: string;
+  date?: string;
+}
+
+export interface UpdateTransactionResponse {
+  transaction: Transaction;
+}
+
+// ─── 거래 통계 타입 ──────────────────────────────────────────────
+
+export interface CategoryStats {
+  categoryId: number;
+  categoryName: string;
+  categoryIcon: string | null;
+  total: number;
+  percentage: number;
+}
+
+export interface MonthlyStatsResponse {
+  totalIncome: number;
+  totalExpense: number;
+  categories: CategoryStats[];
+  dailyTrend: { date: string; income: number; expense: number }[];
+}
+
 export const api = {
   googleLogin: async (idToken: string): Promise<AuthResponse> => {
     return post<AuthResponse>('/auth/google', {idToken});
@@ -399,5 +489,40 @@ export const api = {
   // 공휴일 API (대체공휴일 포함)
   getHolidays: async (year: number): Promise<HolidaysResponse> => {
     return get<HolidaysResponse>(`/holidays?year=${year}`);
+  },
+
+  // 예산 API
+  getBudgets: async (month: string): Promise<BudgetsResponse> => {
+    return get<BudgetsResponse>(`/budgets?month=${month}`);
+  },
+
+  createBudget: async (data: CreateBudgetData): Promise<BudgetResponse> => {
+    return post<BudgetResponse>('/budgets', data, true);
+  },
+
+  updateBudget: async (id: number, data: UpdateBudgetData): Promise<BudgetResponse> => {
+    return patch<BudgetResponse>(`/budgets/${id}`, data);
+  },
+
+  deleteBudget: async (id: number): Promise<DeleteBudgetResponse> => {
+    return del<DeleteBudgetResponse>(`/budgets/${id}`);
+  },
+
+  // 카테고리 CRUD API
+  createCategory: async (data: CreateCategoryData): Promise<CategoryResponse> => {
+    return post<CategoryResponse>('/categories', data, true);
+  },
+
+  updateCategory: async (id: number, data: UpdateCategoryData): Promise<CategoryResponse> => {
+    return patch<CategoryResponse>(`/categories/${id}`, data);
+  },
+
+  deleteCategory: async (id: number): Promise<DeleteCategoryResponse> => {
+    return del<DeleteCategoryResponse>(`/categories/${id}`);
+  },
+
+  // 거래 수정 API
+  updateTransaction: async (id: number, data: UpdateTransactionData): Promise<UpdateTransactionResponse> => {
+    return patch<UpdateTransactionResponse>(`/transactions/${id}`, data);
   },
 };

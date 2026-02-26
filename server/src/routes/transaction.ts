@@ -178,6 +178,112 @@ router.post('/', authMiddleware, async (req: Request, res: Response): Promise<vo
   }
 });
 
+// PATCH /transactions/:id
+// 거래내역을 수정. 소유권 확인 필수. POST와 동일한 검증 적용.
+router.patch('/:id', authMiddleware, async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.user as JwtPayload;
+    const id = parseInt(req.params.id, 10);
+
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Invalid transaction ID.' });
+      return;
+    }
+
+    // 소유권 확인
+    const transaction = await prisma.transaction.findUnique({
+      where: { id },
+    });
+
+    if (!transaction) {
+      res.status(404).json({ error: 'Transaction not found.' });
+      return;
+    }
+
+    if (transaction.userId !== userId) {
+      res.status(403).json({ error: 'You can only update your own transactions.' });
+      return;
+    }
+
+    const { type, amount, categoryId, paymentMethod, paymentSourceId, memo, date } = req.body;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: any = {};
+
+    // 타입 검증
+    if (type !== undefined) {
+      if (!['income', 'expense'].includes(type)) {
+        res.status(400).json({ error: 'type must be "income" or "expense".' });
+        return;
+      }
+      data.type = type;
+    }
+
+    // 금액 검증
+    if (amount !== undefined) {
+      if (amount === null || isNaN(Number(amount)) || Number(amount) <= 0) {
+        res.status(400).json({ error: 'amount must be a positive number.' });
+        return;
+      }
+      data.amount = Number(amount);
+    }
+
+    // 카테고리 설정
+    if (categoryId !== undefined) {
+      data.categoryId = categoryId ? Number(categoryId) : null;
+    }
+
+    // 결제수단 검증
+    if (paymentMethod !== undefined) {
+      if (!['cash', 'account', 'card'].includes(paymentMethod)) {
+        res.status(400).json({ error: 'paymentMethod must be "cash", "account", or "card".' });
+        return;
+      }
+      data.paymentMethod = paymentMethod;
+    }
+
+    // 결제수단에 따라 accountId 또는 cardId 설정
+    const effectivePaymentMethod = paymentMethod ?? transaction.paymentMethod;
+    if (paymentSourceId !== undefined) {
+      // 기존 연결 초기화
+      data.accountId = null;
+      data.cardId = null;
+      if (effectivePaymentMethod === 'account' && paymentSourceId) {
+        data.accountId = Number(paymentSourceId);
+      } else if (effectivePaymentMethod === 'card' && paymentSourceId) {
+        data.cardId = Number(paymentSourceId);
+      }
+    }
+
+    // 메모 설정
+    if (memo !== undefined) {
+      data.memo = memo ? String(memo) : null;
+    }
+
+    // 날짜 검증
+    if (date !== undefined) {
+      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        res.status(400).json({ error: 'date must be in YYYY-MM-DD format.' });
+        return;
+      }
+      data.date = new Date(date + 'T00:00:00.000Z');
+    }
+
+    const updated = await prisma.transaction.update({
+      where: { id },
+      data,
+      include: {
+        category: true,
+      },
+    });
+
+    res.json({ transaction: updated });
+  } catch (error) {
+    console.error('Update transaction error:', error);
+    res.status(500).json({ error: 'Failed to update transaction.' });
+  }
+});
+
 // DELETE /transactions/:id
 // 현재 사용자가 소유한 거래내역을 삭제.
 router.delete('/:id', authMiddleware, async (req: Request<{ id: string }>, res: Response): Promise<void> => {

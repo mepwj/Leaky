@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import {Text, Surface, useTheme, Divider, ActivityIndicator} from 'react-native-paper';
 import {Calendar, DateData, LocaleConfig} from 'react-native-calendars';
-import {useFocusEffect} from '@react-navigation/native';
+import {useFocusEffect, useNavigation} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {
   api,
@@ -248,6 +249,7 @@ const weekdayHeaderStyles = StyleSheet.create({
 function HomeScreen(): React.JSX.Element {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(getTodayString());
   const initialMonth = useRef(getMonthString(new Date()) + '-01').current;
@@ -325,8 +327,13 @@ function HomeScreen(): React.JSX.Element {
   }, [fetchData, monthString]);
 
   const handleDayPress = useCallback((dateString: string) => {
-    setSelectedDate(dateString);
-  }, []);
+    if (dateString === selectedDate) {
+      // 이미 선택된 날짜를 다시 탭하면 상세 화면으로 이동
+      navigation.navigate('DailyDetail', {date: dateString});
+    } else {
+      setSelectedDate(dateString);
+    }
+  }, [selectedDate, navigation]);
 
   const handleDelete = useCallback(
     async (id: number) => {

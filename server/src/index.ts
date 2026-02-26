@@ -5,6 +5,7 @@ import transactionRouter from './routes/transaction';
 import categoryRouter from './routes/category';
 import assetRouter from './routes/asset';
 import holidayRouter from './routes/holiday';
+import budgetRouter from './routes/budget';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -24,6 +25,7 @@ app.use('/transactions', transactionRouter);
 app.use('/categories', categoryRouter);
 app.use('/assets', assetRouter);
 app.use('/holidays', holidayRouter);
+app.use('/budgets', budgetRouter);
 
 // 404 핸들러
 app.use((_req, res) => {
