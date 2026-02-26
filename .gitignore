@@ -25,6 +25,9 @@ web/out/
 # Bundle artifact
 *.jsbundle
 
+# Expo web build output
+dist/
+
 # Testing
 /coverage
 

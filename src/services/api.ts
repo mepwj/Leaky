@@ -1,7 +1,9 @@
+import {Platform} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {API_BASE_URL} from '../config/env';
 
-const BASE_URL = API_BASE_URL;
+// 웹: Vercel rewrite 활용 (/api/* → 백엔드), 네이티브: 직접 연결
+const BASE_URL = Platform.OS === 'web' ? '/api' : API_BASE_URL;
 
 const JWT_KEY = 'jwt_token';
 
