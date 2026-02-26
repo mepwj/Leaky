@@ -862,7 +862,13 @@ function StatsScreen(): React.JSX.Element {
               {/* 범례 */}
               <View style={styles.legendContainer}>
                 {activeCategoryExpenseStats.map(stat => (
-                  <View key={stat.categoryId} style={styles.legendItem}>
+                  <TouchableOpacity
+                    key={stat.categoryId}
+                    style={styles.legendItem}
+                    onPress={() => {
+                      setSelectedCategoryId(stat.categoryId);
+                      setCategoryDetailModalVisible(true);
+                    }}>
                     <View style={styles.legendLeft}>
                       <View style={[styles.legendDot, {backgroundColor: stat.color}]} />
                       <Text style={styles.legendIcon}>{stat.categoryIcon}</Text>
@@ -885,70 +891,8 @@ function StatsScreen(): React.JSX.Element {
                         {stat.percentage}%
                       </Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))}
-              </View>
-
-              {/* 카테고리별 상세 내역 */}
-              <View style={[styles.categoryDetailSection, {borderTopColor: theme.colors.outline + '20'}]}>
-                <Text
-                  variant="bodyMedium"
-                  style={{color: theme.colors.onSurface, fontFamily: 'NanumGothic-Bold', marginBottom: 8}}>
-                  카테고리 상세 내역
-                </Text>
-
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.categoryChipRow}>
-                  {activeCategoryExpenseStats.map(stat => {
-                    const selected = selectedCategoryId === stat.categoryId;
-                    return (
-                      <TouchableOpacity
-                        key={`cat-chip-${stat.categoryId}`}
-                        style={[
-                          styles.categoryChip,
-                          {
-                            borderColor: selected ? stat.color : theme.colors.outline + '30',
-                            backgroundColor: selected ? stat.color + '20' : 'transparent',
-                          },
-                        ]}
-                        onPress={() => setSelectedCategoryId(stat.categoryId)}>
-                        <Text style={styles.legendIcon}>{stat.categoryIcon}</Text>
-                        <Text
-                          variant="bodySmall"
-                          style={{
-                            color: selected ? theme.colors.onSurface : theme.colors.outline,
-                            fontFamily: selected ? 'NanumGothic-Bold' : 'NanumGothic-Regular',
-                          }}>
-                          {stat.categoryName}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-
-                <View style={[styles.categoryDetailSummary, {backgroundColor: theme.colors.surfaceVariant}]}> 
-                  <View style={styles.categoryDetailSummaryTextWrap}>
-                    <Text
-                      variant="bodySmall"
-                      style={{color: theme.colors.outline, fontFamily: 'NanumGothic-Regular'}}>
-                      분석용 상세 보기
-                    </Text>
-                    <Text
-                      variant="bodyMedium"
-                      style={{color: theme.colors.onSurface, fontFamily: 'NanumGothic-Bold'}}>
-                      {selectedCategoryStat ? `${selectedCategoryStat.categoryName} · ${selectedCategoryTransactions.length}건` : '카테고리를 선택해주세요'}
-                    </Text>
-                  </View>
-                  <Button
-                    mode="outlined"
-                    onPress={() => setCategoryDetailModalVisible(true)}
-                    disabled={!selectedCategoryStat}
-                    compact>
-                    상세 열기
-                  </Button>
-                </View>
               </View>
             </>
           )}
@@ -1200,7 +1144,7 @@ function StatsScreen(): React.JSX.Element {
               <Text
                 variant="titleMedium"
                 style={[styles.dialogTitle, {color: theme.colors.onSurface}]}> 
-                카테고리 상세 분석
+                {selectedCategoryStat ? `${selectedCategoryStat.categoryName} 상세 분석` : '카테고리 상세 분석'}
               </Text>
               <Text
                 variant="bodySmall"
@@ -1475,38 +1419,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  categoryDetailSection: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  categoryChipRow: {
-    paddingBottom: 4,
-    gap: 8,
-  },
-  categoryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
   categorySortSegment: {
     marginTop: 10,
-  },
-  categoryDetailSummary: {
-    marginTop: 10,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  categoryDetailSummaryTextWrap: {
-    flex: 1,
   },
   categoryTransactionList: {
     marginTop: 10,
@@ -1647,7 +1561,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   categoryDetailDialog: {
-    maxHeight: '82%',
+    maxHeight: '92%',
   },
   categoryDetailModalList: {
     marginTop: 10,
