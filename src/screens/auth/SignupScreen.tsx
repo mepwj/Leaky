@@ -8,18 +8,11 @@ import {
   useTheme,
   ActivityIndicator,
 } from 'react-native-paper';
-import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {AuthStackParamList} from '../../navigation/AuthNavigator';
 import {api} from '../../services/api';
 import {useAuth} from '../../context/AuthContext';
 
-type SignupScreenNavigationProp = NativeStackNavigationProp<
-  AuthStackParamList,
-  'Signup'
->;
-
 interface Props {
-  navigation: SignupScreenNavigationProp;
+  navigation: {goBack: () => void};
 }
 
 function SignupScreen({navigation}: Props): React.JSX.Element {

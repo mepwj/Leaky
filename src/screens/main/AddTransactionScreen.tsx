@@ -178,9 +178,7 @@ function AddTransactionScreen(): React.JSX.Element {
   // 결제수단 변경 시 선택된 소스 초기화 (현금은 소스 불필요)
   const handlePaymentMethodChange = (value: string) => {
     setPaymentMethod(value as PaymentMethod);
-    if (value === 'cash') {
-      setSelectedPaymentSourceId(null);
-    }
+    setSelectedPaymentSourceId(null);
   };
 
   const handleDateSelect = (dateData: DateData) => {
@@ -198,6 +196,28 @@ function AddTransactionScreen(): React.JSX.Element {
     if (!selectedCategory) {
       Alert.alert('알림', '카테고리를 선택해주세요.');
       return;
+    }
+
+    if (paymentMethod === 'account') {
+      if (accounts.length === 0) {
+        Alert.alert('알림', '등록된 계좌가 없습니다. 자산 탭에서 계좌를 먼저 추가해주세요.');
+        return;
+      }
+      if (!selectedPaymentSourceId) {
+        Alert.alert('알림', '결제 계좌를 선택해주세요.');
+        return;
+      }
+    }
+
+    if (paymentMethod === 'card') {
+      if (cards.length === 0) {
+        Alert.alert('알림', '등록된 카드가 없습니다. 자산 탭에서 카드를 먼저 추가해주세요.');
+        return;
+      }
+      if (!selectedPaymentSourceId) {
+        Alert.alert('알림', '결제 카드를 선택해주세요.');
+        return;
+      }
     }
 
     setSaving(true);
@@ -538,6 +558,9 @@ function AddTransactionScreen(): React.JSX.Element {
                 ))}
               </View>
             )}
+            {paymentMethod === 'account' && accounts.length === 0 && (
+              <Text style={[styles.paymentHint, {color: theme.colors.outline}]}>등록된 계좌가 없습니다.</Text>
+            )}
             {paymentMethod === 'card' && cards.length > 0 && (
               <View style={styles.paymentSourceList}>
                 {cards.map(card => (
@@ -561,6 +584,9 @@ function AddTransactionScreen(): React.JSX.Element {
                   </TouchableOpacity>
                 ))}
               </View>
+            )}
+            {paymentMethod === 'card' && cards.length === 0 && (
+              <Text style={[styles.paymentHint, {color: theme.colors.outline}]}>등록된 카드가 없습니다.</Text>
             )}
           </Surface>
 
@@ -734,6 +760,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 20,
     borderWidth: 1,
+  },
+  paymentHint: {
+    marginTop: 10,
+    fontSize: 13,
   },
   memoContainer: {
     marginTop: 12,

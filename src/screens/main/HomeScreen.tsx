@@ -9,7 +9,14 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
-import {Text, Surface, useTheme, Divider, ActivityIndicator} from 'react-native-paper';
+import {
+  Text,
+  Surface,
+  useTheme,
+  Divider,
+  ActivityIndicator,
+  IconButton,
+} from 'react-native-paper';
 import {Calendar, DateData, LocaleConfig} from 'react-native-calendars';
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -257,7 +264,7 @@ function HomeScreen(): React.JSX.Element {
   const initialMonth = useRef(getMonthString(new Date()) + '-01').current;
   const [summary, setSummary] = useState<TransactionSummary>({});
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
@@ -338,13 +345,9 @@ function HomeScreen(): React.JSX.Element {
   }, [fetchData, monthString]);
 
   const handleDayPress = useCallback((dateString: string) => {
-    if (dateString === selectedDate) {
-      // 이미 선택된 날짜를 다시 탭하면 상세 화면으로 이동
-      navigation.navigate('DailyDetail', {date: dateString});
-    } else {
-      setSelectedDate(dateString);
-    }
-  }, [selectedDate, navigation]);
+    setSelectedDate(dateString);
+    navigation.navigate('DailyDetail', {date: dateString});
+  }, [navigation]);
 
   const handleDelete = useCallback(
     async (id: number) => {
@@ -547,18 +550,25 @@ function HomeScreen(): React.JSX.Element {
                     </View>
                   </View>
                   <View style={styles.transactionRight}>
+                    <Text
+                      variant="bodyMedium"
+                      style={{
+                        color: tx.type === 'income' ? theme.colors.primary : theme.colors.error,
+                        fontWeight: '600',
+                      }}>
+                      {tx.type === 'income' ? '+' : '-'}
+                      {formatAmount(Number(tx.amount))}
+                    </Text>
                     {deleting === tx.id ? (
-                      <ActivityIndicator size={16} />
+                      <ActivityIndicator size={16} style={{marginTop: 4}} />
                     ) : (
-                      <Text
-                        variant="bodyMedium"
-                        style={{
-                          color: tx.type === 'income' ? theme.colors.primary : theme.colors.error,
-                          fontWeight: '600',
-                        }}>
-                        {tx.type === 'income' ? '+' : '-'}
-                        {formatAmount(Number(tx.amount))}
-                      </Text>
+                      <IconButton
+                        icon="trash-can-outline"
+                        size={18}
+                        iconColor={theme.colors.error}
+                        style={styles.deleteButton}
+                        onPress={() => handleDelete(tx.id)}
+                      />
                     )}
                   </View>
                 </TouchableOpacity>
@@ -735,6 +745,10 @@ const styles = StyleSheet.create({
   transactionRight: {
     marginLeft: 12,
     alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  deleteButton: {
+    margin: 0,
   },
 });
 

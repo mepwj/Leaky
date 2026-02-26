@@ -208,21 +208,28 @@ function DailyDetailScreen({navigation, route}: Props): React.JSX.Element {
                     </View>
                   </View>
                   <View style={styles.transactionRight}>
+                    <Text
+                      variant="bodyLarge"
+                      style={{
+                        color:
+                          tx.type === 'income'
+                            ? theme.colors.primary
+                            : theme.colors.error,
+                        fontWeight: '600',
+                      }}>
+                      {tx.type === 'income' ? '+' : '-'}
+                      {formatAmount(Number(tx.amount))}
+                    </Text>
                     {deleting === tx.id ? (
-                      <ActivityIndicator size={16} />
+                      <ActivityIndicator size={16} style={{marginTop: 4}} />
                     ) : (
-                      <Text
-                        variant="bodyLarge"
-                        style={{
-                          color:
-                            tx.type === 'income'
-                              ? theme.colors.primary
-                              : theme.colors.error,
-                          fontWeight: '600',
-                        }}>
-                        {tx.type === 'income' ? '+' : '-'}
-                        {formatAmount(Number(tx.amount))}
-                      </Text>
+                      <IconButton
+                        icon="trash-can-outline"
+                        size={18}
+                        iconColor={theme.colors.error}
+                        style={styles.deleteButton}
+                        onPress={() => handleDelete(tx.id)}
+                      />
                     )}
                   </View>
                 </TouchableOpacity>
@@ -310,6 +317,10 @@ const styles = StyleSheet.create({
   transactionRight: {
     marginLeft: 12,
     alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  deleteButton: {
+    margin: 0,
   },
 });
 
