@@ -231,8 +231,8 @@ const weekdayHeaderStyles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingHorizontal: 4,
-    paddingBottom: 4,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   cell: {
     width: 48,
@@ -409,18 +409,17 @@ function HomeScreen(): React.JSX.Element {
 
         {/* 캘린더 - 좌우 스와이프로 월 이동 */}
         <Surface style={styles.calendarSurface} elevation={1}>
+          <WeekdayHeader defaultColor={theme.colors.onSurface} />
           <Calendar
             current={initialMonth}
             enableSwipeMonths
             showSixWeeks
             hideDayNames
             hideArrows
+            renderHeader={() => <View />}
             onMonthChange={(month: DateData) => {
               setCurrentMonth(new Date(month.year, month.month - 1, 1));
             }}
-            renderHeader={() => (
-              <WeekdayHeader defaultColor={theme.colors.onSurface} />
-            )}
             dayComponent={({date, state}) => (
               <DayComponent
                 date={date}
