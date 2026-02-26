@@ -4,20 +4,6 @@ import { authMiddleware, JwtPayload } from '../middleware/auth';
 
 const router = Router();
 
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-
-function toKstDateKey(date: Date): string {
-  const kstDate = new Date(date.getTime() + KST_OFFSET_MS);
-  const year = kstDate.getUTCFullYear();
-  const month = String(kstDate.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(kstDate.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function isOnOrAfterKstDate(targetDate: Date, baseDate: Date): boolean {
-  return toKstDateKey(targetDate) >= toKstDateKey(baseDate);
-}
-
 // GET /transactions?month=YYYY-MM
 // 지정된 월의 모든 거래내역을 카테고리 포함하여 반환.
 router.get('/', authMiddleware, async (req: Request, res: Response): Promise<void> => {
@@ -178,45 +164,9 @@ router.post('/', authMiddleware, async (req: Request, res: Response): Promise<vo
       data.cardId = Number(paymentSourceId);
     }
 
-    const txDate = new Date(date + 'T00:00:00.000Z');
-
-    const result = await prisma.$transaction(async (txClient) => {
-      const transaction = await txClient.transaction.create({
-        data,
-        include: { category: true },
-      });
-
-      // Auto-update account balance only if tx date >= balanceSyncDate
-      if (data.accountId) {
-        const account = await txClient.account.findUnique({
-          where: { id: data.accountId },
-          select: { balanceSyncDate: true },
-        });
-        if (account && isOnOrAfterKstDate(txDate, account.balanceSyncDate)) {
-          const balanceChange = data.type === 'expense' ? -Number(data.amount) : Number(data.amount);
-          await txClient.account.update({
-            where: { id: data.accountId },
-            data: { balance: { increment: balanceChange } },
-          });
-        }
-      }
-
-      // Auto-update cash balance only if tx date >= cashSyncDate
-      if (paymentMethod === 'cash') {
-        const user = await txClient.user.findUnique({
-          where: { id: userId },
-          select: { cashSyncDate: true },
-        });
-        if (user && isOnOrAfterKstDate(txDate, user.cashSyncDate)) {
-          const cashChange = data.type === 'expense' ? -Number(data.amount) : Number(data.amount);
-          await txClient.user.update({
-            where: { id: userId },
-            data: { cashBalance: { increment: cashChange } },
-          });
-        }
-      }
-
-      return transaction;
+    const result = await prisma.transaction.create({
+      data,
+      include: { category: true },
     });
 
     res.status(201).json({ transaction: result });
@@ -317,88 +267,10 @@ router.patch('/:id', authMiddleware, async (req: Request<{ id: string }>, res: R
       data.date = new Date(date + 'T00:00:00.000Z');
     }
 
-    const oldTxDate = transaction.date;
-    const newTxDate = data.date instanceof Date ? data.date : oldTxDate;
-
-    const updated = await prisma.$transaction(async (txClient) => {
-      // 1. Reverse old balance change (only if old tx date >= balanceSyncDate)
-      if (transaction.accountId) {
-        const account = await txClient.account.findUnique({
-          where: { id: transaction.accountId },
-          select: { balanceSyncDate: true },
-        });
-        if (account && isOnOrAfterKstDate(oldTxDate, account.balanceSyncDate)) {
-          const oldReverse = transaction.type === 'expense'
-            ? Number(transaction.amount)
-            : -Number(transaction.amount);
-          await txClient.account.update({
-            where: { id: transaction.accountId },
-            data: { balance: { increment: oldReverse } },
-          });
-        }
-      }
-
-      // Reverse old cash balance change (only if old tx date >= cashSyncDate)
-      if (transaction.paymentMethod === 'cash') {
-        const user = await txClient.user.findUnique({
-          where: { id: userId },
-          select: { cashSyncDate: true },
-        });
-        if (user && isOnOrAfterKstDate(oldTxDate, user.cashSyncDate)) {
-          const oldCashReverse = transaction.type === 'expense'
-            ? Number(transaction.amount)
-            : -Number(transaction.amount);
-          await txClient.user.update({
-            where: { id: userId },
-            data: { cashBalance: { increment: oldCashReverse } },
-          });
-        }
-      }
-
-      // 2. Apply update
-      const updatedTx = await txClient.transaction.update({
-        where: { id },
-        data,
-        include: { category: true },
-      });
-
-      // 3. Apply new balance change (only if new tx date >= balanceSyncDate)
-      const newAccountId = data.accountId !== undefined ? data.accountId : transaction.accountId;
-      if (newAccountId) {
-        const account = await txClient.account.findUnique({
-          where: { id: newAccountId },
-          select: { balanceSyncDate: true },
-        });
-        if (account && isOnOrAfterKstDate(newTxDate, account.balanceSyncDate)) {
-          const newType = data.type || transaction.type;
-          const newAmount = data.amount || Number(transaction.amount);
-          const newChange = newType === 'expense' ? -newAmount : newAmount;
-          await txClient.account.update({
-            where: { id: newAccountId },
-            data: { balance: { increment: newChange } },
-          });
-        }
-      }
-
-      // Apply new cash balance change (only if new tx date >= cashSyncDate)
-      const newPaymentMethod = data.paymentMethod !== undefined ? data.paymentMethod : transaction.paymentMethod;
-      if (newPaymentMethod === 'cash') {
-        const user = await txClient.user.findUnique({
-          where: { id: userId },
-          select: { cashSyncDate: true },
-        });
-        if (user && isOnOrAfterKstDate(newTxDate, user.cashSyncDate)) {
-          const newType = data.type || transaction.type;
-          const newAmount = data.amount || Number(transaction.amount);
-          const newCashChange = newType === 'expense' ? -newAmount : newAmount;
-          await txClient.user.update({
-            where: { id: userId },
-            data: { cashBalance: { increment: newCashChange } },
-          });
-        }
-      }
-
-      return updatedTx;
+    const updated = await prisma.transaction.update({
+      where: { id },
+      data,
+      include: { category: true },
     });
 
     res.json({ transaction: updated });
@@ -435,46 +307,8 @@ router.delete('/:id', authMiddleware, async (req: Request<{ id: string }>, res: 
       return;
     }
 
-    const deleteTxDate = transaction.date;
-
-    await prisma.$transaction(async (txClient) => {
-      // Reverse balance change if transaction was linked to an account and date >= balanceSyncDate
-      if (transaction.accountId) {
-        const account = await txClient.account.findUnique({
-          where: { id: transaction.accountId },
-          select: { balanceSyncDate: true },
-        });
-        if (account && isOnOrAfterKstDate(deleteTxDate, account.balanceSyncDate)) {
-          const reverseChange = transaction.type === 'expense'
-            ? Number(transaction.amount)
-            : -Number(transaction.amount);
-          await txClient.account.update({
-            where: { id: transaction.accountId },
-            data: { balance: { increment: reverseChange } },
-          });
-        }
-      }
-
-      // Reverse cash balance change if transaction used cash and date >= cashSyncDate
-      if (transaction.paymentMethod === 'cash') {
-        const user = await txClient.user.findUnique({
-          where: { id: userId },
-          select: { cashSyncDate: true },
-        });
-        if (user && isOnOrAfterKstDate(deleteTxDate, user.cashSyncDate)) {
-          const cashReverseChange = transaction.type === 'expense'
-            ? Number(transaction.amount)
-            : -Number(transaction.amount);
-          await txClient.user.update({
-            where: { id: userId },
-            data: { cashBalance: { increment: cashReverseChange } },
-          });
-        }
-      }
-
-      await txClient.transaction.delete({
-        where: { id },
-      });
+    await prisma.transaction.delete({
+      where: { id },
     });
 
     res.json({ message: 'Transaction deleted successfully.' });

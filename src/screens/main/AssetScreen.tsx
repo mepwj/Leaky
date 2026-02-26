@@ -689,7 +689,7 @@ function AssetScreen(): React.JSX.Element {
                     </Text>
                     {cashSyncDate && (
                       <Text variant="bodySmall" style={{color: theme.colors.outline, marginLeft: 8}}>
-                        {'기준일 ' + new Date(cashSyncDate).toLocaleDateString('ko-KR')}
+                        {'잔액 설정일 ' + new Date(cashSyncDate).toLocaleDateString('ko-KR')}
                       </Text>
                     )}
                   </View>
@@ -738,7 +738,7 @@ function AssetScreen(): React.JSX.Element {
                   title={account.alias || account.bankName}
                   description={
                     (account.alias ? account.bankName + ' · ' : '') +
-                    '기준일 ' + new Date(account.balanceSyncDate).toLocaleDateString('ko-KR')
+                    '잔액 설정일 ' + new Date(account.balanceSyncDate).toLocaleDateString('ko-KR')
                   }
                   left={props => (
                     <List.Icon {...props} icon="bank" />
