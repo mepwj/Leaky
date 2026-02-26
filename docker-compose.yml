@@ -11,6 +11,8 @@ services:
       - .env.production
     environment:
       - PORT=3000
+    volumes:
+      - ./server/public:/app/public
     networks:
       - leaky_default
 

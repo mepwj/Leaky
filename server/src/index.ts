@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import authRouter from './routes/auth';
 import transactionRouter from './routes/transaction';
 import categoryRouter from './routes/category';
@@ -13,6 +14,10 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 // 미들웨어
 app.use(cors());
 app.use(express.json());
+
+// APK 다운로드 파일 제공
+const downloadsDir = path.join(__dirname, '../public');
+app.use('/downloads', express.static(downloadsDir));
 
 // 헬스 체크
 app.get('/health', (_req, res) => {

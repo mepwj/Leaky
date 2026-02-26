@@ -5,6 +5,10 @@
   "framework": null,
   "rewrites": [
     {
+      "source": "/apk/:path*",
+      "destination": "http://mepwj.iptime.org:3000/downloads/:path*"
+    },
+    {
       "source": "/api/:path*",
       "destination": "http://mepwj.iptime.org:3000/:path*"
     }

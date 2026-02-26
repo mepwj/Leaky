@@ -1,0 +1,72 @@
+name: Build and Upload APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/apk-deploy.yml'
+
+jobs:
+  build-and-upload-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease
+        working-directory: android
+
+      - name: Prepare APK filename
+        run: |
+          mkdir -p apk-dist
+          cp android/app/build/outputs/apk/release/app-release.apk apk-dist/leaky-latest.apk
+
+      - name: Ensure APK directory exists on Mini PC
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          port: ${{ secrets.PORT }}
+          script: mkdir -p ~/Leaky/server/public/apk
+
+      - name: Upload APK to Mini PC
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          port: ${{ secrets.PORT }}
+          source: apk-dist/leaky-latest.apk
+          target: ~/Leaky/server/public/apk/
+
+      - name: Keep legacy filename too
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          port: ${{ secrets.PORT }}
+          script: |
+            cp ~/Leaky/server/public/apk/leaky-latest.apk ~/Leaky/server/public/apk/app-release.apk
+            ls -lh ~/Leaky/server/public/apk
