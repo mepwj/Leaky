@@ -179,6 +179,15 @@ router.post('/', authMiddleware, async (req: Request, res: Response): Promise<vo
         });
       }
 
+      // Auto-update cash balance
+      if (paymentMethod === 'cash') {
+        const cashChange = data.type === 'expense' ? -Number(data.amount) : Number(data.amount);
+        await txClient.user.update({
+          where: { id: userId },
+          data: { cashBalance: { increment: cashChange } },
+        });
+      }
+
       return transaction;
     });
 
@@ -292,6 +301,17 @@ router.patch('/:id', authMiddleware, async (req: Request<{ id: string }>, res: R
         });
       }
 
+      // Reverse old cash balance change
+      if (transaction.paymentMethod === 'cash') {
+        const oldCashReverse = transaction.type === 'expense'
+          ? Number(transaction.amount)
+          : -Number(transaction.amount);
+        await txClient.user.update({
+          where: { id: userId },
+          data: { cashBalance: { increment: oldCashReverse } },
+        });
+      }
+
       // 2. Apply update
       const updatedTx = await txClient.transaction.update({
         where: { id },
@@ -308,6 +328,18 @@ router.patch('/:id', authMiddleware, async (req: Request<{ id: string }>, res: R
         await txClient.account.update({
           where: { id: newAccountId },
           data: { balance: { increment: newChange } },
+        });
+      }
+
+      // Apply new cash balance change
+      const newPaymentMethod = data.paymentMethod !== undefined ? data.paymentMethod : transaction.paymentMethod;
+      if (newPaymentMethod === 'cash') {
+        const newType = data.type || transaction.type;
+        const newAmount = data.amount || Number(transaction.amount);
+        const newCashChange = newType === 'expense' ? -newAmount : newAmount;
+        await txClient.user.update({
+          where: { id: userId },
+          data: { cashBalance: { increment: newCashChange } },
         });
       }
 
@@ -357,6 +389,17 @@ router.delete('/:id', authMiddleware, async (req: Request<{ id: string }>, res: 
         await txClient.account.update({
           where: { id: transaction.accountId },
           data: { balance: { increment: reverseChange } },
+        });
+      }
+
+      // Reverse cash balance change if transaction used cash
+      if (transaction.paymentMethod === 'cash') {
+        const cashReverseChange = transaction.type === 'expense'
+          ? Number(transaction.amount)
+          : -Number(transaction.amount);
+        await txClient.user.update({
+          where: { id: userId },
+          data: { cashBalance: { increment: cashReverseChange } },
         });
       }
 

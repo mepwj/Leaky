@@ -108,6 +108,9 @@ function AssetScreen(): React.JSX.Element {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [cashBalance, setCashBalance] = useState<number>(0);
+  const [editingCash, setEditingCash] = useState(false);
+  const [cashInput, setCashInput] = useState('');
 
   // 다이얼로그 상태
   const [dialog, setDialog] = useState<DialogState>(initialAccountDialog);
@@ -116,16 +119,18 @@ function AssetScreen(): React.JSX.Element {
     try {
       setLoading(true);
       const month = getCurrentMonthString();
-      const [summaryRes, accountsRes, cardsRes, transactionsRes] = await Promise.all([
+      const [summaryRes, accountsRes, cardsRes, transactionsRes, cashRes] = await Promise.all([
         api.getAssetSummary(),
         api.getAccounts(),
         api.getCards(),
         api.getTransactions(month),
+        api.getCashBalance(),
       ]);
       setSummary(summaryRes.summary);
       setAccounts(accountsRes.accounts);
       setCards(cardsRes.cards);
       setTransactions(transactionsRes.transactions);
+      setCashBalance(cashRes.cashBalance);
     } catch (error: unknown) {
       const message =
         error instanceof Error
@@ -384,6 +389,23 @@ function AssetScreen(): React.JSX.Element {
     [fetchData],
   );
 
+  // ─── 현금 저장 핸들러 ────────────────────────────────────────
+
+  const handleSaveCash = useCallback(async () => {
+    try {
+      setSaving(true);
+      const result = await api.updateCashBalance(Number(cashInput) || 0);
+      setCashBalance(result.cashBalance);
+      setEditingCash(false);
+      await fetchData();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '저장에 실패했습니다.';
+      Alert.alert('오류', message);
+    } finally {
+      setSaving(false);
+    }
+  }, [cashInput, fetchData]);
+
   // ─── 다이얼로그 내용 렌더러 ──────────────────────────────────
 
   const renderDialogContent = () => {
@@ -589,6 +611,11 @@ function AssetScreen(): React.JSX.Element {
               style={{color: theme.colors.outline, marginLeft: 16}}>
               {'카드'} {summary?.cardCount ?? 0}{'개'}
             </Text>
+            <Text
+              variant="bodySmall"
+              style={{color: theme.colors.outline, marginLeft: 16}}>
+              {'현금'} {formatAmount(cashBalance)}
+            </Text>
           </View>
         </Surface>
 
@@ -615,6 +642,60 @@ function AssetScreen(): React.JSX.Element {
             </Text>
           </Surface>
         </View>
+
+        {/* 현금 섹션 */}
+        <Surface style={styles.sectionSurface} elevation={1}>
+          <View style={styles.sectionHeader}>
+            <Text
+              variant="titleSmall"
+              style={[styles.sectionTitle, {color: theme.colors.onSurface}]}>
+              {'현금'}
+            </Text>
+          </View>
+          <View style={{paddingHorizontal: 16, paddingVertical: 8}}>
+            {editingCash ? (
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                <TextInput
+                  value={cashInput ? Number(cashInput).toLocaleString('ko-KR') : ''}
+                  onChangeText={text => {
+                    const numericOnly = text.replace(/[^0-9]/g, '');
+                    setCashInput(numericOnly);
+                  }}
+                  keyboardType="numeric"
+                  mode="outlined"
+                  dense
+                  style={{flex: 1, backgroundColor: 'transparent'}}
+                  outlineColor={theme.colors.outline + '40'}
+                  activeOutlineColor={theme.colors.primary}
+                  right={<TextInput.Affix text="원" />}
+                />
+                <Button mode="contained" compact onPress={handleSaveCash} loading={saving} disabled={saving}>
+                  {'저장'}
+                </Button>
+                <Button mode="text" compact onPress={() => setEditingCash(false)} disabled={saving}>
+                  {'취소'}
+                </Button>
+              </View>
+            ) : (
+              <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
+                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <List.Icon icon="cash" />
+                  <Text variant="bodyMedium" style={{color: theme.colors.onSurface, fontWeight: '600', marginLeft: 8}}>
+                    {formatAmount(cashBalance)}
+                  </Text>
+                </View>
+                <IconButton
+                  icon="pencil-outline"
+                  size={18}
+                  onPress={() => {
+                    setCashInput(String(cashBalance));
+                    setEditingCash(true);
+                  }}
+                />
+              </View>
+            )}
+          </View>
+        </Surface>
 
         {/* 계좌 섹션 */}
         <Surface style={styles.sectionSurface} elevation={1}>

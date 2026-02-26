@@ -306,6 +306,11 @@ export interface AssetSummary {
   totalBalance: number;
   accountCount: number;
   cardCount: number;
+  cashBalance: number;
+}
+
+export interface CashBalanceResponse {
+  cashBalance: number;
 }
 
 export interface AssetSummaryResponse {
@@ -485,6 +490,15 @@ export const api = {
   // 자산 API - 요약
   getAssetSummary: async (): Promise<AssetSummaryResponse> => {
     return get<AssetSummaryResponse>('/assets/summary');
+  },
+
+  // 자산 API - 현금
+  getCashBalance: async (): Promise<CashBalanceResponse> => {
+    return get<CashBalanceResponse>('/assets/cash');
+  },
+
+  updateCashBalance: async (balance: number): Promise<CashBalanceResponse> => {
+    return patch<CashBalanceResponse>('/assets/cash', {balance});
   },
 
   // 공휴일 API (대체공휴일 포함)

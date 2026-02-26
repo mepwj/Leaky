@@ -350,15 +350,56 @@ router.delete('/cards/:id', authMiddleware, async (req: Request<{ id: string }>,
   }
 });
 
+// ─── 현금 엔드포인트 ────────────────────────────────────────────
+
+// GET /assets/cash
+router.get('/cash', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.user as JwtPayload;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { cashBalance: true },
+    });
+    res.json({ cashBalance: user ? Number(user.cashBalance) : 0 });
+  } catch (error) {
+    console.error('Get cash balance error:', error);
+    res.status(500).json({ error: 'Failed to get cash balance.' });
+  }
+});
+
+// PATCH /assets/cash
+router.patch('/cash', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.user as JwtPayload;
+    const { balance } = req.body;
+
+    if (balance === undefined || balance === null || isNaN(Number(balance))) {
+      res.status(400).json({ error: 'balance must be a valid number.' });
+      return;
+    }
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { cashBalance: Number(balance) },
+      select: { cashBalance: true },
+    });
+
+    res.json({ cashBalance: Number(user.cashBalance) });
+  } catch (error) {
+    console.error('Update cash balance error:', error);
+    res.status(500).json({ error: 'Failed to update cash balance.' });
+  }
+});
+
 // ─── 요약 엔드포인트 ─────────────────────────────────────────────
 
 // GET /assets/summary
-// 총 잔액(계좌 잔액 합산), 계좌 수, 카드 수를 반환.
+// 총 잔액(계좌 잔액 합산 + 현금), 계좌 수, 카드 수를 반환.
 router.get('/summary', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId } = req.user as JwtPayload;
 
-    const [accounts, cardCount] = await Promise.all([
+    const [accounts, cardCount, user] = await Promise.all([
       prisma.account.findMany({
         where: { userId },
         select: { balance: true },
@@ -366,15 +407,21 @@ router.get('/summary', authMiddleware, async (req: Request, res: Response): Prom
       prisma.card.count({
         where: { userId },
       }),
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { cashBalance: true },
+      }),
     ]);
 
-    const totalBalance = accounts.reduce((sum, acc) => sum + Number(acc.balance), 0);
+    const cashBalance = user ? Number(user.cashBalance) : 0;
+    const totalBalance = accounts.reduce((sum, acc) => sum + Number(acc.balance), 0) + cashBalance;
 
     res.json({
       summary: {
         totalBalance,
         accountCount: accounts.length,
         cardCount,
+        cashBalance,
       },
     });
   } catch (error) {
