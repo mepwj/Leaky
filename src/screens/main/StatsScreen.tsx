@@ -197,6 +197,7 @@ function StatsScreen(): React.JSX.Element {
   const [editingBudgetId, setEditingBudgetId] = useState<number | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [categoryDetailSort, setCategoryDetailSort] = useState<CategoryDetailSort>('date');
+  const [categoryDetailModalVisible, setCategoryDetailModalVisible] = useState(false);
 
   // ─── 월 문자열 계산 ─────────────────────────────────────────
   const monthString = useMemo(() => getMonthString(currentMonth), [currentMonth]);
@@ -477,6 +478,13 @@ function StatsScreen(): React.JSX.Element {
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
   }, [activeTransactions, selectedCategoryId, categoryDetailSort]);
+
+  const selectedCategoryStat = useMemo(() => {
+    if (selectedCategoryId === null) {
+      return null;
+    }
+    return activeCategoryExpenseStats.find(stat => stat.categoryId === selectedCategoryId) ?? null;
+  }, [activeCategoryExpenseStats, selectedCategoryId]);
 
   // ─── 파이차트 데이터 ───────────────────────────────────────────
   const pieData = useMemo(() => {
@@ -920,66 +928,27 @@ function StatsScreen(): React.JSX.Element {
                   })}
                 </ScrollView>
 
-                <SegmentedButtons
-                  value={categoryDetailSort}
-                  onValueChange={value => setCategoryDetailSort(value as CategoryDetailSort)}
-                  buttons={[
-                    {value: 'date', label: '날짜순'},
-                    {value: 'amount', label: '금액순'},
-                  ]}
-                  style={styles.categorySortSegment}
-                />
-
-                {selectedCategoryTransactions.length === 0 ? (
-                  <View style={styles.emptyContainer}>
-                    <Text variant="bodySmall" style={{color: theme.colors.outline, fontFamily: 'NanumGothic-Regular'}}>
-                      해당 카테고리 지출 내역이 없습니다.
+                <View style={[styles.categoryDetailSummary, {backgroundColor: theme.colors.surfaceVariant}]}> 
+                  <View style={styles.categoryDetailSummaryTextWrap}>
+                    <Text
+                      variant="bodySmall"
+                      style={{color: theme.colors.outline, fontFamily: 'NanumGothic-Regular'}}>
+                      분석용 상세 보기
+                    </Text>
+                    <Text
+                      variant="bodyMedium"
+                      style={{color: theme.colors.onSurface, fontFamily: 'NanumGothic-Bold'}}>
+                      {selectedCategoryStat ? `${selectedCategoryStat.categoryName} · ${selectedCategoryTransactions.length}건` : '카테고리를 선택해주세요'}
                     </Text>
                   </View>
-                ) : (
-                  <View style={styles.categoryTransactionList}>
-                    {selectedCategoryTransactions.slice(0, 10).map(item => (
-                      <View key={`cat-tx-${item.id}`} style={styles.categoryTransactionItem}>
-                        <View style={styles.categoryTransactionLeft}>
-                          <Text
-                            variant="bodyMedium"
-                            style={{color: theme.colors.onSurface, fontFamily: 'NanumGothic-Bold'}}
-                            numberOfLines={1}>
-                            {item.title}
-                          </Text>
-                          {item.memo ? (
-                            <Text
-                              variant="bodySmall"
-                              style={{color: theme.colors.outline, fontFamily: 'NanumGothic-Regular'}}
-                              numberOfLines={1}>
-                              메모: {item.memo}
-                            </Text>
-                          ) : null}
-                        </View>
-                        <View style={styles.categoryTransactionRight}>
-                          <Text
-                            variant="bodyMedium"
-                            style={{color: theme.colors.error, fontFamily: 'NanumGothic-Bold'}}>
-                            -{formatAmount(item.amount)}
-                          </Text>
-                          <Text
-                            variant="bodySmall"
-                            style={{color: theme.colors.outline, fontFamily: 'NanumGothic-Regular'}}>
-                            {new Date(item.date).toLocaleDateString('ko-KR')}
-                          </Text>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {selectedCategoryTransactions.length > 10 && (
-                  <Text
-                    variant="bodySmall"
-                    style={{color: theme.colors.outline, marginTop: 6, fontFamily: 'NanumGothic-Regular'}}>
-                    최근 상위 10건만 표시됩니다.
-                  </Text>
-                )}
+                  <Button
+                    mode="outlined"
+                    onPress={() => setCategoryDetailModalVisible(true)}
+                    disabled={!selectedCategoryStat}
+                    compact>
+                    상세 열기
+                  </Button>
+                </View>
               </View>
             </>
           )}
@@ -1215,6 +1184,93 @@ function StatsScreen(): React.JSX.Element {
         </Pressable>
       </Modal>
 
+      {/* 카테고리 상세 분석 모달 */}
+      <Modal
+        visible={categoryDetailModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCategoryDetailModalVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setCategoryDetailModalVisible(false)}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalKeyboard}>
+            <Pressable
+              style={[styles.dialogContainer, styles.categoryDetailDialog, {backgroundColor: theme.colors.surface}]}
+              onPress={() => {}}>
+              <Text
+                variant="titleMedium"
+                style={[styles.dialogTitle, {color: theme.colors.onSurface}]}> 
+                카테고리 상세 분석
+              </Text>
+              <Text
+                variant="bodySmall"
+                style={{color: theme.colors.outline, marginBottom: 10, fontFamily: 'NanumGothic-Regular'}}>
+                선택한 카테고리의 전체 내역을 날짜/금액 기준으로 정렬해 확인합니다.
+              </Text>
+
+              <SegmentedButtons
+                value={categoryDetailSort}
+                onValueChange={value => setCategoryDetailSort(value as CategoryDetailSort)}
+                buttons={[
+                  {value: 'date', label: '날짜순'},
+                  {value: 'amount', label: '금액순'},
+                ]}
+                style={styles.categorySortSegment}
+              />
+
+              <ScrollView style={styles.categoryDetailModalList}>
+                {selectedCategoryTransactions.map(item => (
+                  <View key={`cat-modal-tx-${item.id}`} style={styles.categoryTransactionItem}>
+                    <View style={styles.categoryTransactionLeft}>
+                      <Text
+                        variant="bodyMedium"
+                        style={{color: theme.colors.onSurface, fontFamily: 'NanumGothic-Bold'}}
+                        numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      {item.memo ? (
+                        <Text
+                          variant="bodySmall"
+                          style={{color: theme.colors.outline, fontFamily: 'NanumGothic-Regular'}}
+                          numberOfLines={2}>
+                          메모: {item.memo}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <View style={styles.categoryTransactionRight}>
+                      <Text
+                        variant="bodyMedium"
+                        style={{color: theme.colors.error, fontFamily: 'NanumGothic-Bold'}}>
+                        -{formatAmount(item.amount)}
+                      </Text>
+                      <Text
+                        variant="bodySmall"
+                        style={{color: theme.colors.outline, fontFamily: 'NanumGothic-Regular'}}>
+                        {new Date(item.date).toLocaleDateString('ko-KR')}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+
+                {selectedCategoryTransactions.length === 0 && (
+                  <View style={styles.emptyContainer}>
+                    <Text variant="bodySmall" style={{color: theme.colors.outline, fontFamily: 'NanumGothic-Regular'}}>
+                      해당 카테고리 지출 내역이 없습니다.
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+
+              <View style={styles.dialogActions}>
+                <Button mode="contained" onPress={() => setCategoryDetailModalVisible(false)}>
+                  닫기
+                </Button>
+              </View>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
+
       {/* ─── 예산 설정 모달 ───────────────────────────────────── */}
       <Modal
         visible={budgetModalVisible}
@@ -1439,6 +1495,19 @@ const styles = StyleSheet.create({
   categorySortSegment: {
     marginTop: 10,
   },
+  categoryDetailSummary: {
+    marginTop: 10,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  categoryDetailSummaryTextWrap: {
+    flex: 1,
+  },
   categoryTransactionList: {
     marginTop: 10,
   },
@@ -1576,6 +1645,13 @@ const styles = StyleSheet.create({
   },
   dialogSaveButton: {
     borderRadius: 8,
+  },
+  categoryDetailDialog: {
+    maxHeight: '82%',
+  },
+  categoryDetailModalList: {
+    marginTop: 10,
+    marginBottom: 6,
   },
 });
 
