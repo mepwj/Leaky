@@ -303,6 +303,16 @@ export interface AssetSummaryResponse {
   summary: AssetSummary;
 }
 
+export interface HolidayItem {
+  date: string;     // "YYYY-MM-DD"
+  name: string;     // 공휴일 이름
+  isHoliday: boolean;
+}
+
+export interface HolidaysResponse {
+  holidays: HolidayItem[];
+}
+
 export const api = {
   googleLogin: async (idToken: string): Promise<AuthResponse> => {
     return post<AuthResponse>('/auth/google', {idToken});
@@ -384,5 +394,10 @@ export const api = {
   // 자산 API - 요약
   getAssetSummary: async (): Promise<AssetSummaryResponse> => {
     return get<AssetSummaryResponse>('/assets/summary');
+  },
+
+  // 공휴일 API (대체공휴일 포함)
+  getHolidays: async (year: number): Promise<HolidaysResponse> => {
+    return get<HolidaysResponse>(`/holidays?year=${year}`);
   },
 };

@@ -1,7 +1,14 @@
-import {MD3LightTheme, MD3DarkTheme} from 'react-native-paper';
+import {MD3LightTheme, MD3DarkTheme, configureFonts} from 'react-native-paper';
+
+const fontConfig = {
+  fontFamily: 'NanumGothic-Regular',
+};
+
+const fonts = configureFonts({config: fontConfig});
 
 export const lightTheme = {
   ...MD3LightTheme,
+  fonts,
   colors: {
     ...MD3LightTheme.colors,
     primary: '#2196F3',
@@ -23,6 +30,7 @@ export const lightTheme = {
 
 export const darkTheme = {
   ...MD3DarkTheme,
+  fonts,
   colors: {
     ...MD3DarkTheme.colors,
     primary: '#90CAF9',

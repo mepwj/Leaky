@@ -7,9 +7,10 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
-import {Text, Surface, useTheme, IconButton, Divider, ActivityIndicator} from 'react-native-paper';
+import {Text, Surface, useTheme, Divider, ActivityIndicator} from 'react-native-paper';
 import {Calendar, DateData, LocaleConfig} from 'react-native-calendars';
 import {useFocusEffect} from '@react-navigation/native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {
   api,
   Transaction,
@@ -32,12 +33,6 @@ const DAY_COLORS = {
   saturday: '#2196F3', // 토요일 - 파란색
 };
 
-// 공휴일 API 응답 타입
-interface HolidayItem {
-  date: string;        // "YYYY-MM-DD"
-  localName: string;   // 한국어 이름
-  name: string;        // 영어 이름
-}
 
 function formatAmount(amount: number): string {
   return amount.toLocaleString('ko-KR') + '원';
@@ -189,10 +184,11 @@ const dayStyles = StyleSheet.create({
   dayText: {
     fontSize: 14,
     marginBottom: 1,
+    fontFamily: 'NanumGothic-Regular',
   },
   amountText: {
     fontSize: 8,
-    fontWeight: '500',
+    fontFamily: 'NanumGothic-Regular',
   },
   // 공휴일 표시용 빨간 점
   holidayDot: {
@@ -245,13 +241,16 @@ const weekdayHeaderStyles = StyleSheet.create({
   text: {
     fontSize: 13,
     fontWeight: '500',
+    fontFamily: 'NanumGothic-Regular',
   },
 });
 
 function HomeScreen(): React.JSX.Element {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(getTodayString());
+  const initialMonth = useRef(getMonthString(new Date()) + '-01').current;
   const [summary, setSummary] = useState<TransactionSummary>({});
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
@@ -276,18 +275,12 @@ function HomeScreen(): React.JSX.Element {
     }
 
     try {
-      const response = await fetch(
-        `https://date.nager.at/api/v3/publicholidays/${year}/KR`,
-      );
-      if (!response.ok) {
-        return;
-      }
-      const data = (await response.json()) as HolidayItem[];
+      const result = await api.getHolidays(year);
 
       // { "YYYY-MM-DD": "공휴일 이름" } 형태로 변환
       const map: Record<string, string> = {};
-      for (const item of data) {
-        map[item.date] = item.localName;
+      for (const item of result.holidays) {
+        map[item.date] = item.name;
       }
 
       holidayCache.current[yearKey] = map;
@@ -330,22 +323,6 @@ function HomeScreen(): React.JSX.Element {
     await fetchData(monthString);
     setRefreshing(false);
   }, [fetchData, monthString]);
-
-  const handlePrevMonth = useCallback(() => {
-    setCurrentMonth(prev => {
-      const d = new Date(prev);
-      d.setMonth(d.getMonth() - 1);
-      return d;
-    });
-  }, []);
-
-  const handleNextMonth = useCallback(() => {
-    setCurrentMonth(prev => {
-      const d = new Date(prev);
-      d.setMonth(d.getMonth() + 1);
-      return d;
-    });
-  }, []);
 
   const handleDayPress = useCallback((dateString: string) => {
     setSelectedDate(dateString);
@@ -419,67 +396,52 @@ function HomeScreen(): React.JSX.Element {
   return (
     <View style={[styles.container, {backgroundColor: theme.colors.background}]}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, {paddingTop: insets.top + 8}]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }>
-        {/* 월 네비게이션 */}
-        <View style={styles.monthNav}>
-          <IconButton
-            icon="chevron-left"
-            size={28}
-            onPress={handlePrevMonth}
-          />
-          <Text variant="titleLarge" style={{color: theme.colors.onBackground, fontWeight: '600'}}>
-            {getMonthLabel(currentMonth)}
-          </Text>
-          <IconButton
-            icon="chevron-right"
-            size={28}
-            onPress={handleNextMonth}
-          />
-        </View>
+        {/* 월 타이틀 */}
+        <Text
+          variant="titleMedium"
+          style={[styles.monthTitle, {color: theme.colors.onBackground, fontFamily: 'NanumGothic-Bold'}]}>
+          {getMonthLabel(currentMonth)}
+        </Text>
 
-        {/* 캘린더 */}
+        {/* 캘린더 - 좌우 스와이프로 월 이동 */}
         <Surface style={styles.calendarSurface} elevation={1}>
-          {loading && transactions.length === 0 ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" />
-            </View>
-          ) : (
-            <Calendar
-              key={monthString}
-              current={monthString + '-01'}
-              hideArrows
-              hideExtraDays
-              // Calendar 내장 헤더(월 이름 행)를 커스텀 요일 헤더로 대체
-              // renderHeader가 기본 헤더(월 이름 + 요일 행)를 통째로 대체하므로
-              // 여기서 요일 행만 렌더링하여 월 이름 중복을 제거
-              renderHeader={() => (
-                <WeekdayHeader defaultColor={theme.colors.onSurface} />
-              )}
-              dayComponent={({date, state}) => (
-                <DayComponent
-                  date={date}
-                  state={state}
-                  marking={date ? markedDates[date.dateString] : undefined}
-                  selectedDate={selectedDate}
-                  onPress={handleDayPress}
-                  themeColors={themeColors}
-                  holidays={holidays}
-                />
-              )}
-              theme={{
-                calendarBackground: theme.colors.surface,
-                textSectionTitleColor: theme.colors.onSurface,
-                todayTextColor: theme.colors.primary,
-                dayTextColor: theme.colors.onSurface,
-                textDisabledColor: theme.colors.outline,
-                monthTextColor: theme.colors.onSurface,
-              } as Record<string, unknown>}
-              style={styles.calendar}
-            />
-          )}
+          <Calendar
+            current={initialMonth}
+            enableSwipeMonths
+            showSixWeeks
+            hideDayNames
+            hideArrows
+            onMonthChange={(month: DateData) => {
+              setCurrentMonth(new Date(month.year, month.month - 1, 1));
+            }}
+            renderHeader={() => (
+              <WeekdayHeader defaultColor={theme.colors.onSurface} />
+            )}
+            dayComponent={({date, state}) => (
+              <DayComponent
+                date={date}
+                state={state}
+                marking={date ? markedDates[date.dateString] : undefined}
+                selectedDate={selectedDate}
+                onPress={handleDayPress}
+                themeColors={themeColors}
+                holidays={holidays}
+              />
+            )}
+            theme={{
+              calendarBackground: theme.colors.surface,
+              textSectionTitleColor: theme.colors.onSurface,
+              todayTextColor: theme.colors.primary,
+              dayTextColor: theme.colors.onSurface,
+              textDisabledColor: theme.colors.outline,
+              monthTextColor: theme.colors.onSurface,
+            } as Record<string, unknown>}
+            style={styles.calendar}
+          />
         </Surface>
 
         {/* 월간 요약 */}
@@ -596,16 +558,13 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 24,
   },
-  monthNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 16,
-    paddingBottom: 4,
+  monthTitle: {
+    textAlign: 'center',
+    fontWeight: '700',
+    marginBottom: 8,
   },
   calendarSurface: {
     marginHorizontal: 16,
-    marginTop: 4,
     borderRadius: 16,
     overflow: 'hidden',
   },
