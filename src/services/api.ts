@@ -29,6 +29,7 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   const token = await tokenStorage.get();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache',
   };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
