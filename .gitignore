@@ -25,6 +25,7 @@ npm-debug.log
 
 # Expo web build output
 dist/
+.expo/
 
 # Testing
 /coverage
