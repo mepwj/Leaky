@@ -11,23 +11,19 @@ import {Text, Surface, useTheme, Divider, ActivityIndicator, IconButton} from 'r
 import {useFocusEffect} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {RouteProp} from '@react-navigation/native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {
   api,
   Transaction,
 } from '../../services/api';
-
-export type DailyDetailParams = {
-  DailyDetail: {
-    date: string; // YYYY-MM-DD 형식
-  };
-};
+import {MainStackParamList} from '../../navigation/MainNavigator';
 
 type DailyDetailScreenNavigationProp = NativeStackNavigationProp<
-  DailyDetailParams,
+  MainStackParamList,
   'DailyDetail'
 >;
 
-type DailyDetailScreenRouteProp = RouteProp<DailyDetailParams, 'DailyDetail'>;
+type DailyDetailScreenRouteProp = RouteProp<MainStackParamList, 'DailyDetail'>;
 
 interface Props {
   navigation: DailyDetailScreenNavigationProp;
@@ -40,6 +36,7 @@ function formatAmount(amount: number): string {
 
 function DailyDetailScreen({navigation, route}: Props): React.JSX.Element {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const {date} = route.params;
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
@@ -120,7 +117,7 @@ function DailyDetailScreen({navigation, route}: Props): React.JSX.Element {
   return (
     <View style={[styles.container, {backgroundColor: theme.colors.background}]}>
       {/* 헤더 */}
-      <View style={styles.header}>
+      <View style={[styles.header, {paddingTop: insets.top}]}>
         <IconButton icon="arrow-left" size={24} onPress={() => navigation.goBack()} />
         <Text variant="titleLarge" style={{color: theme.colors.onBackground, fontWeight: '600'}}>
           {dateLabel}
@@ -174,6 +171,7 @@ function DailyDetailScreen({navigation, route}: Props): React.JSX.Element {
                 {index > 0 && <Divider />}
                 <TouchableOpacity
                   style={styles.transactionItem}
+                  onPress={() => navigation.navigate('AddTransaction', {editTransaction: tx})}
                   onLongPress={() => handleDelete(tx.id)}
                   activeOpacity={0.7}>
                   <View style={styles.transactionLeft}>
@@ -245,7 +243,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 8,
     paddingBottom: 4,
     paddingHorizontal: 4,
   },

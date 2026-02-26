@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Alert,
   RefreshControl,
+  Modal,
+  Pressable,
 } from 'react-native';
 import {Text, Surface, useTheme, Divider, ActivityIndicator} from 'react-native-paper';
 import {Calendar, DateData, LocaleConfig} from 'react-native-calendars';
@@ -258,6 +260,8 @@ function HomeScreen(): React.JSX.Element {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [pickerYear, setPickerYear] = useState(currentMonth.getFullYear());
 
   // 공휴일 캐시: 연도별로 저장 { "2026": { "2026-01-01": "신정", ... } }
   const holidayCache = useRef<Record<string, Record<string, string>>>({});
@@ -296,6 +300,13 @@ function HomeScreen(): React.JSX.Element {
   useEffect(() => {
     fetchHolidays(currentMonth.getFullYear());
   }, [currentMonth, fetchHolidays]);
+
+  // 월 선택기 모달 열릴 때 pickerYear 동기화
+  useEffect(() => {
+    if (showMonthPicker) {
+      setPickerYear(currentMonth.getFullYear());
+    }
+  }, [showMonthPicker, currentMonth]);
 
   const fetchData = useCallback(async (month: string) => {
     try {
@@ -408,11 +419,13 @@ function HomeScreen(): React.JSX.Element {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }>
         {/* 월 타이틀 */}
-        <Text
-          variant="titleMedium"
-          style={[styles.monthTitle, {color: theme.colors.onBackground, fontFamily: 'NanumGothic-Bold'}]}>
-          {getMonthLabel(currentMonth)}
-        </Text>
+        <TouchableOpacity onPress={() => setShowMonthPicker(true)}>
+          <Text
+            variant="titleMedium"
+            style={[styles.monthTitle, {color: theme.colors.onBackground, fontFamily: 'NanumGothic-Bold'}]}>
+            {getMonthLabel(currentMonth)}
+          </Text>
+        </TouchableOpacity>
 
         {/* 캘린더 - 좌우 스와이프로 월 이동 */}
         <Surface style={styles.calendarSurface} elevation={1}>
@@ -476,7 +489,7 @@ function HomeScreen(): React.JSX.Element {
             <View style={[styles.summaryDivider, {backgroundColor: theme.colors.outline}]} />
             <View style={styles.summaryItem}>
               <Text variant="bodySmall" style={{color: theme.colors.outline}}>
-                잔액
+                순수익
               </Text>
               <Text
                 variant="titleMedium"
@@ -508,6 +521,7 @@ function HomeScreen(): React.JSX.Element {
                 {index > 0 && <Divider />}
                 <TouchableOpacity
                   style={styles.transactionItem}
+                  onPress={() => navigation.navigate('AddTransaction', {editTransaction: tx})}
                   onLongPress={() => handleDelete(tx.id)}
                   activeOpacity={0.7}>
                   <View style={styles.transactionLeft}>
@@ -553,9 +567,87 @@ function HomeScreen(): React.JSX.Element {
           )}
         </Surface>
       </ScrollView>
+
+      {/* 월 선택기 모달 */}
+      <Modal visible={showMonthPicker} transparent animationType="fade" onRequestClose={() => setShowMonthPicker(false)}>
+        <Pressable style={monthPickerStyles.overlay} onPress={() => setShowMonthPicker(false)}>
+          <Pressable style={[monthPickerStyles.container, {backgroundColor: theme.colors.surface}]} onPress={() => {}}>
+            {/* 연도 선택 */}
+            <View style={monthPickerStyles.yearRow}>
+              <TouchableOpacity onPress={() => setPickerYear(prev => prev - 1)}>
+                <Text style={[monthPickerStyles.yearArrow, {color: theme.colors.onSurface}]}>{'<'}</Text>
+              </TouchableOpacity>
+              <Text variant="titleLarge" style={{color: theme.colors.onSurface, fontWeight: '700'}}>{pickerYear}년</Text>
+              <TouchableOpacity onPress={() => setPickerYear(prev => prev + 1)}>
+                <Text style={[monthPickerStyles.yearArrow, {color: theme.colors.onSurface}]}>{'>'}</Text>
+              </TouchableOpacity>
+            </View>
+            {/* 월 그리드 */}
+            <View style={monthPickerStyles.monthGrid}>
+              {Array.from({length: 12}, (_, i) => i + 1).map(m => {
+                const isSelected = pickerYear === currentMonth.getFullYear() && m === currentMonth.getMonth() + 1;
+                return (
+                  <TouchableOpacity
+                    key={m}
+                    style={[
+                      monthPickerStyles.monthCell,
+                      isSelected && {backgroundColor: theme.colors.primaryContainer},
+                    ]}
+                    onPress={() => {
+                      setCurrentMonth(new Date(pickerYear, m - 1, 1));
+                      setShowMonthPicker(false);
+                    }}>
+                    <Text style={{color: isSelected ? theme.colors.primary : theme.colors.onSurface, fontWeight: isSelected ? '700' : '400'}}>
+                      {m}월
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
+
+const monthPickerStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  container: {
+    width: '100%',
+    borderRadius: 16,
+    padding: 24,
+  },
+  yearRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    gap: 24,
+  },
+  yearArrow: {
+    fontSize: 22,
+    fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  monthGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  monthCell: {
+    width: '25%',
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+});
 
 const styles = StyleSheet.create({
   container: {

@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback} from 'react';
+import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {
   View,
   StyleSheet,
@@ -21,15 +21,27 @@ import {
   IconButton,
 } from 'react-native-paper';
 import {Calendar, DateData} from 'react-native-calendars';
-import {useNavigation} from '@react-navigation/native';
-import {api, Account, Card, Category, CreateTransactionData} from '../../services/api';
+import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
+import {api, Account, Card, Category, CreateTransactionData, Transaction} from '../../services/api';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 type TransactionType = 'expense' | 'income';
 type PaymentMethod = 'cash' | 'account' | 'card';
 
+type AddTransactionRouteParams = {
+  AddTransaction: {
+    date?: string;
+    editTransaction?: Transaction;
+  } | undefined;
+};
+
 function AddTransactionScreen(): React.JSX.Element {
   const theme = useTheme();
   const navigation = useNavigation();
+  const route = useRoute<RouteProp<AddTransactionRouteParams, 'AddTransaction'>>();
+  const insets = useSafeAreaInsets();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const editTransaction = route.params?.editTransaction;
 
   // 폼 상태
   const [type, setType] = useState<TransactionType>('expense');
@@ -89,6 +101,34 @@ function AddTransactionScreen(): React.JSX.Element {
     fetchPaymentSources();
   }, []);
 
+  // 수정 모드: 기존 거래 데이터로 폼 초기화
+  useEffect(() => {
+    if (editTransaction) {
+      setType(editTransaction.type as TransactionType);
+      setAmount(String(Math.round(Number(editTransaction.amount))));
+      const txDate = editTransaction.date.split('T')[0];
+      const [y, m, d] = txDate.split('-').map(Number);
+      setDate(new Date(y, m - 1, d));
+      setMemo(editTransaction.memo || '');
+      setPaymentMethod(editTransaction.paymentMethod as PaymentMethod);
+      if (editTransaction.accountId) {
+        setSelectedPaymentSourceId(editTransaction.accountId);
+      } else if (editTransaction.cardId) {
+        setSelectedPaymentSourceId(editTransaction.cardId);
+      }
+    }
+  }, [editTransaction]);
+
+  // 수정 모드: 카테고리 로드 후 기존 카테고리 선택
+  useEffect(() => {
+    if (editTransaction && categories.length > 0 && !selectedCategory) {
+      const found = categories.find(c => c.id === editTransaction.categoryId);
+      if (found) {
+        setSelectedCategory(found);
+      }
+    }
+  }, [editTransaction, categories, selectedCategory]);
+
   const formatDateToString = (d: Date): string => {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -145,20 +185,31 @@ function AddTransactionScreen(): React.JSX.Element {
 
     setSaving(true);
     try {
-      const data: CreateTransactionData = {
-        type,
-        amount: Number(amount),
-        categoryId: selectedCategory.id,
-        paymentMethod,
-        paymentSourceId: selectedPaymentSourceId || undefined,
-        memo: memo.trim() || undefined,
-        date: formatDateToString(date),
-      };
-
-      await api.createTransaction(data);
+      if (editTransaction) {
+        await api.updateTransaction(editTransaction.id, {
+          type,
+          amount: Number(amount),
+          categoryId: selectedCategory!.id,
+          paymentMethod,
+          paymentSourceId: selectedPaymentSourceId || undefined,
+          memo: memo.trim() || undefined,
+          date: formatDateToString(date),
+        });
+      } else {
+        const data: CreateTransactionData = {
+          type,
+          amount: Number(amount),
+          categoryId: selectedCategory.id,
+          paymentMethod,
+          paymentSourceId: selectedPaymentSourceId || undefined,
+          memo: memo.trim() || undefined,
+          date: formatDateToString(date),
+        };
+        await api.createTransaction(data);
+      }
       navigation.goBack();
     } catch (error) {
-      console.error('Failed to create transaction:', error);
+      console.error('Failed to save transaction:', error);
       Alert.alert('오류', '저장에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setSaving(false);
@@ -210,8 +261,8 @@ function AddTransactionScreen(): React.JSX.Element {
                         : theme.colors.surface,
                       borderColor: isSelected
                         ? typeColor
-                        : theme.colors.outline + '40',
-                      borderWidth: isSelected ? 2 : 1,
+                        : theme.colors.outline + '20',
+                      borderWidth: 2,
                     },
                   ]}
                   onPress={() => setSelectedCategory(category)}
@@ -258,6 +309,7 @@ function AddTransactionScreen(): React.JSX.Element {
             {
               backgroundColor: theme.colors.surface,
               borderBottomColor: theme.colors.outline + '40',
+              paddingTop: insets.top,
             },
           ]}>
           <IconButton
@@ -266,12 +318,15 @@ function AddTransactionScreen(): React.JSX.Element {
             onPress={() => navigation.goBack()}
           />
           <Text variant="titleMedium" style={{color: theme.colors.onSurface}}>
-            {type === 'income' ? '수입' : '지출'} 등록
+            {editTransaction
+              ? (type === 'income' ? '수입' : '지출') + ' 수정'
+              : (type === 'income' ? '수입' : '지출') + ' 등록'}
           </Text>
           <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView
+          ref={scrollViewRef}
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled">
@@ -515,6 +570,11 @@ function AddTransactionScreen(): React.JSX.Element {
               style={styles.memoInput}
               outlineColor={theme.colors.outline + '40'}
               activeOutlineColor={theme.colors.primary}
+              onFocus={() => {
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollToEnd({animated: true});
+                }, 300);
+              }}
             />
           </Surface>
 
@@ -528,7 +588,7 @@ function AddTransactionScreen(): React.JSX.Element {
               style={[styles.saveButton, {backgroundColor: typeColor}]}
               labelStyle={styles.saveButtonLabel}
               contentStyle={styles.saveButtonContent}>
-              저장
+              {editTransaction ? '수정' : '저장'}
             </Button>
           </View>
         </ScrollView>

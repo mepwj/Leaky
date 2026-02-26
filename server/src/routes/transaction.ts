@@ -164,14 +164,25 @@ router.post('/', authMiddleware, async (req: Request, res: Response): Promise<vo
       data.cardId = Number(paymentSourceId);
     }
 
-    const transaction = await prisma.transaction.create({
-      data,
-      include: {
-        category: true,
-      },
+    const result = await prisma.$transaction(async (txClient) => {
+      const transaction = await txClient.transaction.create({
+        data,
+        include: { category: true },
+      });
+
+      // Auto-update account balance
+      if (data.accountId) {
+        const balanceChange = data.type === 'expense' ? -Number(data.amount) : Number(data.amount);
+        await txClient.account.update({
+          where: { id: data.accountId },
+          data: { balance: { increment: balanceChange } },
+        });
+      }
+
+      return transaction;
     });
 
-    res.status(201).json({ transaction });
+    res.status(201).json({ transaction: result });
   } catch (error) {
     console.error('Create transaction error:', error);
     res.status(500).json({ error: 'Failed to create transaction.' });
@@ -269,12 +280,38 @@ router.patch('/:id', authMiddleware, async (req: Request<{ id: string }>, res: R
       data.date = new Date(date + 'T00:00:00.000Z');
     }
 
-    const updated = await prisma.transaction.update({
-      where: { id },
-      data,
-      include: {
-        category: true,
-      },
+    const updated = await prisma.$transaction(async (txClient) => {
+      // 1. Reverse old balance change
+      if (transaction.accountId) {
+        const oldReverse = transaction.type === 'expense'
+          ? Number(transaction.amount)
+          : -Number(transaction.amount);
+        await txClient.account.update({
+          where: { id: transaction.accountId },
+          data: { balance: { increment: oldReverse } },
+        });
+      }
+
+      // 2. Apply update
+      const updatedTx = await txClient.transaction.update({
+        where: { id },
+        data,
+        include: { category: true },
+      });
+
+      // 3. Apply new balance change
+      const newAccountId = data.accountId !== undefined ? data.accountId : transaction.accountId;
+      if (newAccountId) {
+        const newType = data.type || transaction.type;
+        const newAmount = data.amount || Number(transaction.amount);
+        const newChange = newType === 'expense' ? -newAmount : newAmount;
+        await txClient.account.update({
+          where: { id: newAccountId },
+          data: { balance: { increment: newChange } },
+        });
+      }
+
+      return updatedTx;
     });
 
     res.json({ transaction: updated });
@@ -311,8 +348,21 @@ router.delete('/:id', authMiddleware, async (req: Request<{ id: string }>, res: 
       return;
     }
 
-    await prisma.transaction.delete({
-      where: { id },
+    await prisma.$transaction(async (txClient) => {
+      // Reverse balance change if transaction was linked to an account
+      if (transaction.accountId) {
+        const reverseChange = transaction.type === 'expense'
+          ? Number(transaction.amount)
+          : -Number(transaction.amount);
+        await txClient.account.update({
+          where: { id: transaction.accountId },
+          data: { balance: { increment: reverseChange } },
+        });
+      }
+
+      await txClient.transaction.delete({
+        where: { id },
+      });
     });
 
     res.json({ message: 'Transaction deleted successfully.' });

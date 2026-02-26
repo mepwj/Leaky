@@ -14,6 +14,7 @@ import AssetScreen from '../screens/main/AssetScreen';
 import SettingsScreen from '../screens/main/SettingsScreen';
 import AddTransactionScreen from '../screens/main/AddTransactionScreen';
 import DailyDetailScreen from '../screens/main/DailyDetailScreen';
+import {Transaction} from '../services/api';
 
 export type MainTabParamList = {
   Home: undefined;
@@ -25,7 +26,7 @@ export type MainTabParamList = {
 
 export type MainStackParamList = {
   MainTabs: undefined;
-  AddTransaction: {date?: string} | undefined;
+  AddTransaction: {date?: string; editTransaction?: Transaction} | undefined;
   DailyDetail: {date: string};
 };
 

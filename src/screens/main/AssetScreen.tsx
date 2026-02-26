@@ -22,6 +22,7 @@ import {
   Divider,
 } from 'react-native-paper';
 import {useFocusEffect} from '@react-navigation/native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {
   api,
   Account,
@@ -84,6 +85,7 @@ const initialCardDialog: CardDialogState = {
 
 function AssetScreen(): React.JSX.Element {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   // 데이터 상태
   const [summary, setSummary] = useState<AssetSummary | null>(null);
@@ -358,7 +360,7 @@ function AssetScreen(): React.JSX.Element {
           />
           <TextInput
             label="잔액"
-            value={d.balance}
+            value={d.balance ? Number(d.balance).toLocaleString('ko-KR') : ''}
             onChangeText={text => {
               const numericOnly = text.replace(/[^0-9]/g, '');
               setDialog(prev => ({...prev, balance: numericOnly} as AccountDialogState));
@@ -440,7 +442,7 @@ function AssetScreen(): React.JSX.Element {
   return (
     <View style={[styles.container, {backgroundColor: theme.colors.background}]}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, {paddingTop: insets.top + 8}]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }>
