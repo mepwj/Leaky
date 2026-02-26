@@ -1,0 +1,15 @@
+services:
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: leaky-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.production
+    environment:
+      - PORT=3000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

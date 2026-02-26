@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// adb reverse tcp:3000 tcp:3000 으로 물리 기기/에뮬레이터 모두 localhost 사용
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = 'http://mepwj.iptime.org:3000';
 
 const JWT_KEY = 'jwt_token';
 

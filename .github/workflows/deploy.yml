@@ -1,0 +1,36 @@
+name: Deploy to Mini PC
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/deploy.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          port: ${{ secrets.PORT }}
+          envs: DATABASE_URL,JWT_SECRET,GOOGLE_WEB_CLIENT_ID
+          script: |
+            cd ~/Leaky
+            git pull origin main
+            echo "DATABASE_URL=${DATABASE_URL}" > .env.production
+            echo "JWT_SECRET=${JWT_SECRET}" >> .env.production
+            echo "GOOGLE_WEB_CLIENT_ID=${GOOGLE_WEB_CLIENT_ID}" >> .env.production
+            docker compose down
+            docker compose up -d --build
+            docker compose exec api npx prisma migrate deploy
+            docker compose logs --tail=20
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
