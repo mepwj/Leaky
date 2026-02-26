@@ -9,5 +9,5 @@ module.exports = {
     title: 'Leaky',
     lang: 'ko',
   },
-  plugins: ['expo-font'],
+  plugins: [],
 };

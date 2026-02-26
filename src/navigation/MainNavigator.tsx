@@ -7,7 +7,7 @@ import {
 } from '@react-navigation/native-stack';
 import {useTheme} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import {MaterialCommunityIcons} from '../components/Icon';
 import HomeScreen from '../screens/main/HomeScreen';
 import StatsScreen from '../screens/main/StatsScreen';
 import AssetScreen from '../screens/main/AssetScreen';

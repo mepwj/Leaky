@@ -1,6 +1,14 @@
 module.exports = function (api) {
-  api.cache(true);
+  const platform = api.caller((caller) => caller?.platform);
+  api.cache.using(() => platform);
+
+  if (platform === 'web') {
+    return {
+      presets: ['babel-preset-expo'],
+    };
+  }
+
   return {
-    presets: ['babel-preset-expo'],
+    presets: ['module:@react-native/babel-preset'],
   };
 };
