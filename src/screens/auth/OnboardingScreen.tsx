@@ -66,30 +66,49 @@ function OnboardingScreen(): React.JSX.Element {
     }
 
     setLoading(true);
-    try {
-      await api.updateProfile(trimmedNickname);
+    let createdAccountId: number | null = null;
+    let createdCardId: number | null = null;
 
+    try {
       if (hasAccountInput) {
-        await api.createAccount({
+        const accountRes = await api.createAccount({
           bankName: accountBankName.trim(),
           alias: accountAlias.trim() || undefined,
           balance: accountBalance ? Number(accountBalance) : undefined,
         });
+        createdAccountId = accountRes.account.id;
       }
 
       if (hasCardInput) {
-        await api.createCard({
+        const cardRes = await api.createCard({
           cardCompany: cardCompany.trim(),
           alias: cardAlias.trim() || undefined,
           cardType: 'credit',
           paymentDay: cardPaymentDay ? Number(cardPaymentDay) : undefined,
         });
+        createdCardId = cardRes.card.id;
       }
+
+      await api.updateProfile(trimmedNickname);
 
       completeOnboarding();
     } catch (error: unknown) {
+      const rollbackTasks: Promise<unknown>[] = [];
+      if (createdCardId !== null) {
+        rollbackTasks.push(api.deleteCard(createdCardId));
+      }
+      if (createdAccountId !== null) {
+        rollbackTasks.push(api.deleteAccount(createdAccountId));
+      }
+
+      if (rollbackTasks.length > 0) {
+        await Promise.allSettled(rollbackTasks);
+      }
+
       const message =
-        error instanceof Error ? error.message : '초기 설정 저장에 실패했습니다.';
+        error instanceof Error
+          ? error.message
+          : '초기 설정 저장에 실패했습니다. 다시 시도해주세요.';
       Alert.alert('오류', message);
     } finally {
       setLoading(false);

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {API_BASE_URL} from '../config/env';
 
-const BASE_URL = 'http://mepwj.iptime.org:3000';
+const BASE_URL = API_BASE_URL;
 
 const JWT_KEY = 'jwt_token';
 
@@ -412,14 +413,6 @@ export interface MonthlyStatsResponse {
 export const api = {
   googleLogin: async (idToken: string): Promise<AuthResponse> => {
     return post<AuthResponse>('/auth/google', {idToken});
-  },
-
-  signup: async (email: string, password: string): Promise<AuthResponse> => {
-    return post<AuthResponse>('/auth/signup', {email, password});
-  },
-
-  login: async (email: string, password: string): Promise<AuthResponse> => {
-    return post<AuthResponse>('/auth/login', {email, password});
   },
 
   getMe: async (): Promise<MeResponse> => {

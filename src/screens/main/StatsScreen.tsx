@@ -19,6 +19,7 @@ import {
   Button,
   TextInput,
   ActivityIndicator,
+  SegmentedButtons,
 } from 'react-native-paper';
 import {useFocusEffect} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -63,6 +64,72 @@ function getDaysInMonth(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
 }
 
+function toDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+interface WeekRange {
+  start: string;
+  end: string;
+  label: string;
+}
+
+function buildWeekRangesInMonth(currentMonth: Date): WeekRange[] {
+  const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+  const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+
+  const cursor = new Date(monthStart);
+  cursor.setDate(cursor.getDate() - cursor.getDay());
+
+  const ranges: WeekRange[] = [];
+
+  while (cursor <= monthEnd) {
+    const weekStart = new Date(cursor);
+    const weekEnd = new Date(cursor);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+
+    const clampedStart = weekStart < monthStart ? monthStart : weekStart;
+    const clampedEnd = weekEnd > monthEnd ? monthEnd : weekEnd;
+
+    const startLabel = `${clampedStart.getMonth() + 1}/${clampedStart.getDate()}`;
+    const endLabel = `${clampedEnd.getMonth() + 1}/${clampedEnd.getDate()}`;
+
+    ranges.push({
+      start: toDateKey(clampedStart),
+      end: toDateKey(clampedEnd),
+      label: `${startLabel} - ${endLabel}`,
+    });
+
+    cursor.setDate(cursor.getDate() + 7);
+  }
+
+  return ranges;
+}
+
+function findInitialWeekIndex(weekRanges: WeekRange[], currentMonth: Date): number {
+  if (weekRanges.length === 0) {
+    return 0;
+  }
+
+  const today = new Date();
+  const isCurrentMonth =
+    currentMonth.getFullYear() === today.getFullYear() &&
+    currentMonth.getMonth() === today.getMonth();
+
+  if (!isCurrentMonth) {
+    return 0;
+  }
+
+  const todayKey = toDateKey(today);
+  const found = weekRanges.findIndex(
+    range => todayKey >= range.start && todayKey <= range.end,
+  );
+  return found >= 0 ? found : 0;
+}
+
 // ─── 카테고리별 지출 통계 타입 ────────────────────────────────────
 interface CategoryExpenseStat {
   categoryId: number;
@@ -88,6 +155,8 @@ function StatsScreen(): React.JSX.Element {
 
   // ─── 상태 ───────────────────────────────────────────────────
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [period, setPeriod] = useState<'month' | 'week'>('month');
+  const [selectedWeekIndex, setSelectedWeekIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -120,6 +189,15 @@ function StatsScreen(): React.JSX.Element {
   }, [currentMonth]);
 
   const prevMonthString = useMemo(() => getMonthString(prevMonthDate), [prevMonthDate]);
+  const weekRanges = useMemo(() => buildWeekRangesInMonth(currentMonth), [currentMonth]);
+
+  const weekRange = useMemo(() => {
+    if (weekRanges.length === 0) {
+      return null;
+    }
+    const safeIndex = Math.max(0, Math.min(selectedWeekIndex, weekRanges.length - 1));
+    return weekRanges[safeIndex];
+  }, [weekRanges, selectedWeekIndex]);
 
   // 월 선택기 모달 열릴 때 pickerYear 동기화
   useEffect(() => {
@@ -127,6 +205,10 @@ function StatsScreen(): React.JSX.Element {
       setPickerYear(currentMonth.getFullYear());
     }
   }, [showMonthPicker, currentMonth]);
+
+  useEffect(() => {
+    setSelectedWeekIndex(findInitialWeekIndex(weekRanges, currentMonth));
+  }, [weekRanges, currentMonth]);
 
   // ─── 데이터 fetch ───────────────────────────────────────────
   const fetchData = useCallback(async (month: string, prevMonth: string) => {
@@ -181,6 +263,14 @@ function StatsScreen(): React.JSX.Element {
     });
   }, []);
 
+  const goToPrevWeek = useCallback(() => {
+    setSelectedWeekIndex(prev => Math.max(prev - 1, 0));
+  }, []);
+
+  const goToNextWeek = useCallback(() => {
+    setSelectedWeekIndex(prev => Math.min(prev + 1, Math.max(weekRanges.length - 1, 0)));
+  }, [weekRanges.length]);
+
   // ─── 월간 합계 계산 ─────────────────────────────────────────
   const monthlyTotals = useMemo(() => {
     let income = 0;
@@ -191,6 +281,39 @@ function StatsScreen(): React.JSX.Element {
     }
     return {income, expense, balance: income - expense};
   }, [summary]);
+
+  const weeklyTransactions = useMemo(() => {
+    if (!weekRange) {
+      return [];
+    }
+    return transactions.filter(tx => {
+      const dateKey = tx.date.split('T')[0];
+      return dateKey >= weekRange.start && dateKey <= weekRange.end;
+    });
+  }, [transactions, weekRange]);
+
+  const weeklySummary = useMemo(() => {
+    if (!weekRange) {
+      return {};
+    }
+    const scoped: TransactionSummary = {};
+    for (const [key, value] of Object.entries(summary)) {
+      if (key >= weekRange.start && key <= weekRange.end) {
+        scoped[key] = value;
+      }
+    }
+    return scoped;
+  }, [summary, weekRange]);
+
+  const weeklyTotals = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+    for (const day of Object.values(weeklySummary)) {
+      income += day.income;
+      expense += day.expense;
+    }
+    return {income, expense, balance: income - expense};
+  }, [weeklySummary]);
 
   // 전월 합계
   const prevMonthlyTotals = useMemo(() => {
@@ -260,20 +383,55 @@ function StatsScreen(): React.JSX.Element {
     return stats;
   }, [transactions, monthlyTotals.expense]);
 
+  const weeklyCategoryExpenseStats = useMemo((): CategoryExpenseStat[] => {
+    const catMap = new Map<number, {name: string; icon: string; total: number}>();
+    const expenseTransactions = weeklyTransactions.filter(tx => tx.type === 'expense');
+
+    for (const tx of expenseTransactions) {
+      const catId = tx.categoryId ?? 0;
+      const catName = tx.category?.name ?? '미분류';
+      const catIcon = tx.category?.icon ?? '💸';
+      const amount = Number(tx.amount);
+
+      const existing = catMap.get(catId);
+      if (existing) {
+        existing.total += amount;
+      } else {
+        catMap.set(catId, {name: catName, icon: catIcon, total: amount});
+      }
+    }
+
+    const totalExpense = weeklyTotals.expense;
+    return Array.from(catMap.entries())
+      .map(([catId, data], index) => ({
+        categoryId: catId,
+        categoryName: data.name,
+        categoryIcon: data.icon,
+        total: data.total,
+        percentage: totalExpense > 0 ? Math.round((data.total / totalExpense) * 100) : 0,
+        color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [weeklyTransactions, weeklyTotals.expense]);
+
+  const activeTotals = period === 'month' ? monthlyTotals : weeklyTotals;
+  const activeCategoryExpenseStats =
+    period === 'month' ? categoryExpenseStats : weeklyCategoryExpenseStats;
+
   // ─── 파이차트 데이터 ───────────────────────────────────────────
   const pieData = useMemo(() => {
-    if (categoryExpenseStats.length === 0) return [];
-    return categoryExpenseStats.map(stat => ({
+    if (activeCategoryExpenseStats.length === 0) return [];
+    return activeCategoryExpenseStats.map(stat => ({
       value: stat.total,
       color: stat.color,
       text: `${stat.percentage}%`,
     }));
-  }, [categoryExpenseStats]);
+  }, [activeCategoryExpenseStats]);
 
   // ─── 바차트 데이터 ────────────────────────────────────────────
   const barData = useMemo(() => {
-    if (categoryExpenseStats.length === 0) return [];
-    return categoryExpenseStats.map(stat => ({
+    if (activeCategoryExpenseStats.length === 0) return [];
+    return activeCategoryExpenseStats.map(stat => ({
       value: stat.total,
       label: stat.categoryName,
       frontColor: stat.color,
@@ -286,10 +444,33 @@ function StatsScreen(): React.JSX.Element {
         </Text>
       ),
     }));
-  }, [categoryExpenseStats]);
+  }, [activeCategoryExpenseStats]);
 
   // ─── 일별 지출 트렌드 라인차트 데이터 ──────────────────────────
   const lineData = useMemo(() => {
+    if (period === 'week') {
+      if (!weekRange) {
+        return [];
+      }
+
+      const weekData: {value: number; label: string}[] = [];
+      const start = new Date(weekRange.start);
+      const end = new Date(weekRange.end);
+      const cursor = new Date(start);
+
+      while (cursor <= end) {
+        const dateKey = toDateKey(cursor);
+        const dayData = summary[dateKey];
+        weekData.push({
+          value: dayData?.expense ?? 0,
+          label: String(cursor.getDate()),
+        });
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      return weekData;
+    }
+
     const daysInMonth = getDaysInMonth(currentMonth);
     const data: {value: number; label: string}[] = [];
 
@@ -308,7 +489,7 @@ function StatsScreen(): React.JSX.Element {
       });
     }
     return data;
-  }, [summary, currentMonth, monthString]);
+  }, [summary, currentMonth, monthString, period, weekRange]);
 
   // ─── 전체 예산 (categoryId가 null인 예산) ─────────────────────
   const overallBudget = useMemo(() => {
@@ -430,6 +611,60 @@ function StatsScreen(): React.JSX.Element {
           </TouchableOpacity>
         </View>
 
+        <View style={styles.periodSelector}>
+          <SegmentedButtons
+            value={period}
+            onValueChange={value => setPeriod(value as 'month' | 'week')}
+            buttons={[
+              {value: 'month', label: '월간'},
+              {value: 'week', label: '주간'},
+            ]}
+          />
+          {period === 'week' && weekRange && (
+            <View style={styles.weekSelectorRow}>
+              <TouchableOpacity
+                onPress={goToPrevWeek}
+                disabled={selectedWeekIndex === 0}
+                hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+                <Text
+                  style={[
+                    styles.weekArrow,
+                    {
+                      color:
+                        selectedWeekIndex === 0
+                          ? theme.colors.outline
+                          : theme.colors.onSurface,
+                    },
+                  ]}>
+                  {'<'}
+                </Text>
+              </TouchableOpacity>
+
+              <Text variant="bodySmall" style={[styles.periodLabel, {color: theme.colors.outline}]}> 
+                {weekRange.label}
+              </Text>
+
+              <TouchableOpacity
+                onPress={goToNextWeek}
+                disabled={selectedWeekIndex >= weekRanges.length - 1}
+                hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+                <Text
+                  style={[
+                    styles.weekArrow,
+                    {
+                      color:
+                        selectedWeekIndex >= weekRanges.length - 1
+                          ? theme.colors.outline
+                          : theme.colors.onSurface,
+                    },
+                  ]}>
+                  {'>'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
         {/* ─── 2. 월간 요약 카드 ───────────────────────────────── */}
         <Surface style={styles.cardSurface} elevation={1}>
           <Text
@@ -443,7 +678,7 @@ function StatsScreen(): React.JSX.Element {
                 수입
               </Text>
               <Text variant="titleMedium" style={{color: theme.colors.primary, fontWeight: '700', fontFamily: 'NanumGothic-Bold'}}>
-                {formatAmount(monthlyTotals.income)}
+                {formatAmount(activeTotals.income)}
               </Text>
             </View>
             <View style={[styles.summaryDivider, {backgroundColor: theme.colors.outline}]} />
@@ -452,7 +687,7 @@ function StatsScreen(): React.JSX.Element {
                 지출
               </Text>
               <Text variant="titleMedium" style={{color: theme.colors.error, fontWeight: '700', fontFamily: 'NanumGothic-Bold'}}>
-                {formatAmount(monthlyTotals.expense)}
+                {formatAmount(activeTotals.expense)}
               </Text>
             </View>
             <View style={[styles.summaryDivider, {backgroundColor: theme.colors.outline}]} />
@@ -463,17 +698,17 @@ function StatsScreen(): React.JSX.Element {
               <Text
                 variant="titleMedium"
                 style={{
-                  color: monthlyTotals.balance >= 0 ? theme.colors.primary : theme.colors.error,
+                  color: activeTotals.balance >= 0 ? theme.colors.primary : theme.colors.error,
                   fontWeight: '700',
                   fontFamily: 'NanumGothic-Bold',
                 }}>
-                {formatAmount(monthlyTotals.balance)}
+                {formatAmount(activeTotals.balance)}
               </Text>
             </View>
           </View>
 
           {/* 전월 대비 비교 */}
-          {comparisonText && (
+          {period === 'month' && comparisonText && (
             <View style={styles.comparisonContainer}>
               <Text
                 variant="bodySmall"
@@ -497,7 +732,7 @@ function StatsScreen(): React.JSX.Element {
             카테고리별 지출
           </Text>
 
-          {categoryExpenseStats.length === 0 ? (
+          {activeCategoryExpenseStats.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text variant="bodyMedium" style={{color: theme.colors.outline, fontFamily: 'NanumGothic-Regular'}}>
                 지출 내역이 없습니다.
@@ -519,9 +754,9 @@ function StatsScreen(): React.JSX.Element {
                         총 지출
                       </Text>
                       <Text variant="titleSmall" style={{color: theme.colors.error, fontWeight: '700', fontFamily: 'NanumGothic-Bold'}}>
-                        {monthlyTotals.expense >= 10000
-                          ? Math.floor(monthlyTotals.expense / 10000).toLocaleString() + '만원'
-                          : formatAmount(monthlyTotals.expense)}
+                        {activeTotals.expense >= 10000
+                          ? Math.floor(activeTotals.expense / 10000).toLocaleString() + '만원'
+                          : formatAmount(activeTotals.expense)}
                       </Text>
                     </View>
                   )}
@@ -530,7 +765,7 @@ function StatsScreen(): React.JSX.Element {
 
               {/* 범례 */}
               <View style={styles.legendContainer}>
-                {categoryExpenseStats.map(stat => (
+                {activeCategoryExpenseStats.map(stat => (
                   <View key={stat.categoryId} style={styles.legendItem}>
                     <View style={styles.legendLeft}>
                       <View style={[styles.legendDot, {backgroundColor: stat.color}]} />
@@ -562,7 +797,7 @@ function StatsScreen(): React.JSX.Element {
         </Surface>
 
         {/* ─── 4. 카테고리별 지출 바차트 ────────────────────────── */}
-        {categoryExpenseStats.length > 0 && (
+        {activeCategoryExpenseStats.length > 0 && (
           <Surface style={styles.cardSurface} elevation={1}>
             <Text
               variant="titleSmall"
@@ -606,7 +841,7 @@ function StatsScreen(): React.JSX.Element {
             일별 지출 추이
           </Text>
 
-          {monthlyTotals.expense === 0 ? (
+          {activeTotals.expense === 0 ? (
             <View style={styles.emptyContainer}>
               <Text variant="bodyMedium" style={{color: theme.colors.outline, fontFamily: 'NanumGothic-Regular'}}>
                 지출 내역이 없습니다.
@@ -880,6 +1115,28 @@ const styles = StyleSheet.create({
   monthTitle: {
     textAlign: 'center',
     fontWeight: '700',
+  },
+  periodSelector: {
+    marginHorizontal: 16,
+    marginTop: 4,
+  },
+  periodLabel: {
+    marginTop: 6,
+    textAlign: 'center',
+    fontFamily: 'NanumGothic-Regular',
+  },
+  weekSelectorRow: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  weekArrow: {
+    fontSize: 16,
+    fontWeight: '700',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
 
   // 공통 카드 Surface

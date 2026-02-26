@@ -1,4 +1,4 @@
-import React, {useState, useCallback} from 'react';
+import React, {useState, useCallback, useMemo} from 'react';
 import {
   View,
   StyleSheet,
@@ -29,6 +29,7 @@ import {
   api,
   Account,
   Card,
+  Transaction,
   AssetSummary,
   CreateAccountData,
   UpdateAccountData,
@@ -40,8 +41,14 @@ function formatAmount(amount: number): string {
   return amount.toLocaleString('ko-KR') + '원';
 }
 
+function getCurrentMonthString(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
 type DialogMode = 'add' | 'edit';
-type DialogTarget = 'account' | 'card';
 
 interface AccountDialogState {
   visible: boolean;
@@ -97,6 +104,7 @@ function AssetScreen(): React.JSX.Element {
   const [summary, setSummary] = useState<AssetSummary | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -107,14 +115,17 @@ function AssetScreen(): React.JSX.Element {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [summaryRes, accountsRes, cardsRes] = await Promise.all([
+      const month = getCurrentMonthString();
+      const [summaryRes, accountsRes, cardsRes, transactionsRes] = await Promise.all([
         api.getAssetSummary(),
         api.getAccounts(),
         api.getCards(),
+        api.getTransactions(month),
       ]);
       setSummary(summaryRes.summary);
       setAccounts(accountsRes.accounts);
       setCards(cardsRes.cards);
+      setTransactions(transactionsRes.transactions);
     } catch (error: unknown) {
       const message =
         error instanceof Error
@@ -137,6 +148,38 @@ function AssetScreen(): React.JSX.Element {
     await fetchData();
     setRefreshing(false);
   }, [fetchData]);
+
+  const cardExpenseByCardId = useMemo(() => {
+    const totals = new Map<number, number>();
+
+    for (const tx of transactions) {
+      if (tx.type !== 'expense' || !tx.cardId) {
+        continue;
+      }
+
+      const amount = Number(tx.amount);
+      totals.set(tx.cardId, (totals.get(tx.cardId) || 0) + amount);
+    }
+
+    return totals;
+  }, [transactions]);
+
+  const monthlyCardExpense = useMemo(() => {
+    let total = 0;
+    for (const amount of cardExpenseByCardId.values()) {
+      total += amount;
+    }
+    return total;
+  }, [cardExpenseByCardId]);
+
+  const expectedCardPayment = useMemo(() => {
+    return cards.reduce((sum, card) => {
+      if (card.cardType !== 'credit') {
+        return sum;
+      }
+      return sum + (cardExpenseByCardId.get(card.id) || 0);
+    }, 0);
+  }, [cards, cardExpenseByCardId]);
 
   // ─── 계좌 다이얼로그 ───────────────────────────────────────────
 
@@ -549,6 +592,30 @@ function AssetScreen(): React.JSX.Element {
           </View>
         </Surface>
 
+        <View style={styles.metricsRow}>
+          <Surface style={styles.metricSurface} elevation={1}>
+            <Text variant="bodySmall" style={{color: theme.colors.outline}}>
+              이번 달 카드 사용액
+            </Text>
+            <Text
+              variant="titleMedium"
+              style={{color: theme.colors.onSurface, fontWeight: '700'}}>
+              {formatAmount(monthlyCardExpense)}
+            </Text>
+          </Surface>
+
+          <Surface style={styles.metricSurface} elevation={1}>
+            <Text variant="bodySmall" style={{color: theme.colors.outline}}>
+              카드 결제 예정액
+            </Text>
+            <Text
+              variant="titleMedium"
+              style={{color: theme.colors.primary, fontWeight: '700'}}>
+              {formatAmount(expectedCardPayment)}
+            </Text>
+          </Surface>
+        </View>
+
         {/* 계좌 섹션 */}
         <Surface style={styles.sectionSurface} elevation={1}>
           <View style={styles.sectionHeader}>
@@ -743,6 +810,18 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 8,
     paddingHorizontal: 4,
+  },
+  metricsRow: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  metricSurface: {
+    flex: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   sectionHeader: {
     flexDirection: 'row',

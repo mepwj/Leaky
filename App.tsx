@@ -5,18 +5,16 @@ import {PaperProvider} from 'react-native-paper';
 import {NavigationContainer} from '@react-navigation/native';
 import {GoogleSignin} from '@react-native-google-signin/google-signin';
 import {lightTheme} from './src/config/theme';
+import {GOOGLE_WEB_CLIENT_ID} from './src/config/env';
 import RootNavigator from './src/navigation/RootNavigator';
 import {AuthProvider} from './src/context/AuthContext';
-
-const WEB_CLIENT_ID =
-  '230616603857-r0lv9i8fjbtt04if1pcv875e7plj8aoa.apps.googleusercontent.com';
 
 function App(): React.JSX.Element {
   const colorScheme = useColorScheme();
 
   useEffect(() => {
     GoogleSignin.configure({
-      webClientId: WEB_CLIENT_ID,
+      webClientId: GOOGLE_WEB_CLIENT_ID,
       offlineAccess: true,
     });
   }, []);
