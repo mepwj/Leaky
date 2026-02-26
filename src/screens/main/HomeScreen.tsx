@@ -9,6 +9,7 @@ import {
   Modal,
   Pressable,
   GestureResponderEvent,
+  Platform,
 } from 'react-native';
 import {
   Text,
@@ -352,22 +353,35 @@ function HomeScreen(): React.JSX.Element {
 
   const handleDelete = useCallback(
     async (id: number) => {
+      const runDelete = async () => {
+        try {
+          setDeleting(id);
+          await api.deleteTransaction(id);
+          await fetchData(monthString);
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : '삭제에 실패했습니다.';
+          Alert.alert('오류', message);
+        } finally {
+          setDeleting(null);
+        }
+      };
+
+      if (Platform.OS === 'web') {
+        const confirmed = globalThis.confirm('이 거래내역을 삭제하시겠습니까?');
+        if (!confirmed) {
+          return;
+        }
+        await runDelete();
+        return;
+      }
+
       Alert.alert('삭제 확인', '이 거래내역을 삭제하시겠습니까?', [
         {text: '취소', style: 'cancel'},
         {
           text: '삭제',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              setDeleting(id);
-              await api.deleteTransaction(id);
-              await fetchData(monthString);
-            } catch (error: unknown) {
-              const message = error instanceof Error ? error.message : '삭제에 실패했습니다.';
-              Alert.alert('오류', message);
-            } finally {
-              setDeleting(null);
-            }
+          onPress: () => {
+            void runDelete();
           },
         },
       ]);

@@ -268,22 +268,35 @@ function AddTransactionScreen(): React.JSX.Element {
       return;
     }
 
+    const runDelete = async () => {
+      try {
+        setDeleting(true);
+        await api.deleteTransaction(editTransaction.id);
+        navigation.goBack();
+      } catch (error) {
+        console.error('Failed to delete transaction:', error);
+        Alert.alert('오류', '삭제에 실패했습니다. 다시 시도해주세요.');
+      } finally {
+        setDeleting(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = globalThis.confirm('이 거래내역을 삭제하시겠습니까?');
+      if (!confirmed) {
+        return;
+      }
+      void runDelete();
+      return;
+    }
+
     Alert.alert('삭제 확인', '이 거래내역을 삭제하시겠습니까?', [
       {text: '취소', style: 'cancel'},
       {
         text: '삭제',
         style: 'destructive',
-        onPress: async () => {
-          try {
-            setDeleting(true);
-            await api.deleteTransaction(editTransaction.id);
-            navigation.goBack();
-          } catch (error) {
-            console.error('Failed to delete transaction:', error);
-            Alert.alert('오류', '삭제에 실패했습니다. 다시 시도해주세요.');
-          } finally {
-            setDeleting(false);
-          }
+        onPress: () => {
+          void runDelete();
         },
       },
     ]);
